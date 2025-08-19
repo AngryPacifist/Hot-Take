@@ -98,7 +98,7 @@ export default function Explore() {
         {/* Category Filters */}
         <CategoryFilters
           selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
+          onCategoryChange={setSelectedCategory}
         />
 
         {/* Results Summary */}
