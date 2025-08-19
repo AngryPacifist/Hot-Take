@@ -98,7 +98,7 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
             </div>
             <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
               <span data-testid={`text-time-ago-${prediction.id}`}>
-                {new Date(prediction.createdAt).toLocaleDateString()}
+                {prediction.createdAt ? new Date(prediction.createdAt).toLocaleDateString() : 'Recently'}
               </span>
               <span>•</span>
               <Badge 

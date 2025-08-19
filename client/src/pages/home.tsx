@@ -19,17 +19,33 @@ export default function Home() {
   const { subscribe } = useWebSocket();
 
   const { data: initialPredictions, isLoading, refetch } = useQuery({
-    queryKey: ["/api/predictions", { categoryId: selectedCategory || undefined, limit: 20, offset: 0 }],
+    queryKey: ["/api/predictions"],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        limit: "20",
+        offset: "0",
+        ...(selectedCategory && { categoryId: selectedCategory })
+      });
+      return fetch(`/api/predictions?${params}`).then(res => res.json());
+    },
     enabled: true,
   });
 
   const { data: moreData, isLoading: loadingMore } = useQuery({
-    queryKey: ["/api/predictions", { categoryId: selectedCategory || undefined, limit: 20, offset }],
+    queryKey: ["/api/predictions", "more", offset],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        limit: "20",
+        offset: offset.toString(),
+        ...(selectedCategory && { categoryId: selectedCategory })
+      });
+      return fetch(`/api/predictions?${params}`).then(res => res.json());
+    },
     enabled: offset > 0,
   });
 
   useEffect(() => {
-    if (initialPredictions) {
+    if (initialPredictions && Array.isArray(initialPredictions)) {
       setPredictions(initialPredictions);
       setOffset(20);
       setHasMore(initialPredictions.length === 20);
@@ -37,7 +53,7 @@ export default function Home() {
   }, [initialPredictions]);
 
   useEffect(() => {
-    if (moreData && offset > 0) {
+    if (moreData && Array.isArray(moreData) && offset > 0) {
       setPredictions(prev => [...prev, ...moreData]);
       setHasMore(moreData.length === 20);
     }
