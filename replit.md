@@ -34,10 +34,11 @@ Preferred communication style: Simple, everyday language.
 - **Data Integrity**: Foreign key constraints and proper indexing for performance
 
 ## Authentication System
-- **Provider**: Replit Auth integration using OpenID Connect
+- **Provider**: Custom username/password authentication with bcrypt hashing
 - **Session Storage**: PostgreSQL-backed session store with configurable TTL
-- **User Management**: Automatic user creation/updates on authentication
-- **Security**: HTTP-only cookies, secure session handling, and CSRF protection
+- **User Management**: Free account creation with username, optional email/name fields
+- **Security**: HTTP-only cookies, secure session handling, and password hashing
+- **Default Points**: New users start with 1,000 points for immediate prediction participation
 
 ## Real-time Features
 - **WebSocket Implementation**: Native WebSocket server for live updates

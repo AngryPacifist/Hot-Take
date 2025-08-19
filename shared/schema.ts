@@ -138,6 +138,7 @@ export const insertCategorySchema = createInsertSchema(categories).omit({
 
 export const insertPredictionSchema = createInsertSchema(predictions).omit({
   id: true,
+  userId: true, // Added by middleware
   totalStakes: true,
   totalPoints: true,
   yesVotes: true,
@@ -148,6 +149,8 @@ export const insertPredictionSchema = createInsertSchema(predictions).omit({
   resolvedValue: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  resolutionDate: z.string().transform((val) => new Date(val)),
 });
 
 export const insertVoteSchema = createInsertSchema(votes).omit({

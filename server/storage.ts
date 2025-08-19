@@ -30,7 +30,7 @@ export interface IStorage {
   // Prediction operations
   getPredictions(limit?: number, offset?: number, categoryId?: string): Promise<PredictionWithDetails[]>;
   getPrediction(id: string): Promise<PredictionWithDetails | undefined>;
-  createPrediction(prediction: InsertPrediction): Promise<Prediction>;
+  createPrediction(prediction: InsertPrediction & { userId: string }): Promise<Prediction>;
   updatePredictionStats(predictionId: string): Promise<void>;
   
   // Vote operations
@@ -147,7 +147,7 @@ export class DatabaseStorage implements IStorage {
     } as PredictionWithDetails;
   }
 
-  async createPrediction(prediction: InsertPrediction): Promise<Prediction> {
+  async createPrediction(prediction: InsertPrediction & { userId: string }): Promise<Prediction> {
     const [newPrediction] = await db.insert(predictions).values(prediction).returning();
     return newPrediction;
   }

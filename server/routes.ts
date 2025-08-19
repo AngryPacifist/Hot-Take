@@ -142,8 +142,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const predictions = await storage.getPredictions(limit, offset, categoryId);
       
       // If user is authenticated, include their votes
-      if (req.isAuthenticated?.() && req.user) {
-        const userId = (req.user as any).claims.sub;
+      if (req.session && (req.session as any).userId) {
+        const userId = (req.session as any).userId;
         for (const prediction of predictions) {
           const userVote = await storage.getUserVote(userId, prediction.id);
           if (userVote) {
@@ -167,8 +167,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // If user is authenticated, include their vote
-      if (req.isAuthenticated?.() && req.user) {
-        const userId = (req.user as any).claims.sub;
+      if (req.session && (req.session as any).userId) {
+        const userId = (req.session as any).userId;
         const userVote = await storage.getUserVote(userId, prediction.id);
         if (userVote) {
           (prediction as any).userVote = userVote;
@@ -184,7 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/predictions", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any).userId;
       const validatedData = insertPredictionSchema.parse(req.body);
       
       const prediction = await storage.createPrediction({
@@ -205,7 +205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Vote routes
   app.post("/api/votes", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.session as any).userId;
       const validatedData = insertVoteSchema.parse(req.body);
       
       // Check if user already voted on this prediction
