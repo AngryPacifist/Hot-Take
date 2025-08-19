@@ -1,0 +1,122 @@
+Hot Take: Social Prediction Feeds on Base & Farcaster
+
+Concept:
+Hot Take is a TikTok-style, social-in-social Mini App where every scroll surfaces a short prediction or hot take you can stake on. Users engage not by just liking or commenting, but by putting skin in the game—staking USDC, points, or other tokens. Every stance is public, making each bet a part of your onchain identity and reputation.
+
+
+---
+
+Core Features
+
+1. Infinite Scroll, Fast Decisions
+
+TikTok-style feed of predictions: swipe and respond quickly.
+
+Users can stake on binary (Yes/No), numeric, or multiple-choice outcomes.
+
+Niche feeds (food, fashion, music, memes, sports, crypto) ensure everyone finds their corner of conversation.
+
+
+2. Staking & Engagement Modes
+
+Toggle Betting Mode: Users choose between:
+
+Real $ Bets (USDC or tokens)
+
+Points Only (no financial risk, contributes to reputation/leaderboards)
+
+Mixed Mode
+
+
+Daily free bets or points keep engagement high even for users without funds.
+
+
+3. Video & Multimedia Integration
+
+Users can record short 15–30 second videos explaining predictions.
+
+Reaction videos allow engagement beyond likes/comments.
+
+Flip the Take: users challenge predictions by posting a short counter video, creating viral duels.
+
+Meme templates can be integrated with bets for shareable content.
+
+
+4. Prediction Creation & Curation
+
+Hybrid Model:
+
+Whitelisted high-stake creators (influencers, experts).
+
+Open community for low-stake bets (points or $1 max).
+
+
+Community voting determines which new predictions appear in the feed.
+
+Prediction Lottery: Random users can post a high-stake prediction each day, promoting fresh voices.
+
+
+5. Resolution & Oracles
+
+Verified APIs for sports, finance, and on-chain events.
+
+Community Consensus Oracles for cultural or niche predictions.
+
+Hybrid Model: Combines APIs and community voting.
+
+“Truth Score” System: Oracles earn credibility over time, building trust in prediction outcomes.
+
+
+6. Reputation & Rewards
+
+Correct predictions earn points, badges, or USDC payouts.
+
+Leaderboards and micro-NFTs signal accuracy and influence.
+
+Social incentives: Followers can join predictions; influencers earn a cut when followers win.
+
+
+7. Advanced Engagement Mechanics
+
+Prediction bundles / micro-parlays for higher reward engagement.
+
+Mini tournaments or weekly challenges within niche feeds.
+
+Collaborative Hot Takes where groups co-create predictions.
+
+Shareable achievements and viral duels to fuel social loops.
+
+
+
+---
+
+Why It Works
+
+Addictive Loop: Infinite scroll + fast decisions = constant engagement.
+
+Identity Signaling: Public bets become a social flex backed by conviction.
+
+Culture-Driven: Predictions span diverse niches, making the app appealing to all subcultures.
+
+Influencer & Virality Potential: Reputation shifts from “follower count” → “accuracy and conviction.”
+
+Onchain Advantages: Transparent history of bets, instant payouts, social graphs native to Base & Farcaster.
+
+
+
+---
+
+Vision
+
+Hot Take is not just a prediction market. It’s a social layer where:
+
+Bets = posts
+
+Correct calls = reputation
+
+Communities form around niches
+
+Culture drives attention, not just profit
+
+
+In essence, Hot Take is TikTok for conviction: short, addictive, social, and onchain.
