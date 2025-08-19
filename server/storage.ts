@@ -35,7 +35,7 @@ export interface IStorage {
   
   // Vote operations
   getUserVote(userId: string, predictionId: string): Promise<Vote | undefined>;
-  createVote(vote: InsertVote): Promise<Vote>;
+  createVote(vote: InsertVote & { userId: string }): Promise<Vote>;
   
   // User stats
   updateUserStats(userId: string): Promise<void>;
@@ -191,7 +191,7 @@ export class DatabaseStorage implements IStorage {
     return vote;
   }
 
-  async createVote(vote: InsertVote): Promise<Vote> {
+  async createVote(vote: InsertVote & { userId: string }): Promise<Vote> {
     const [newVote] = await db.insert(votes).values(vote).returning();
     
     // Update prediction stats

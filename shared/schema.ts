@@ -155,6 +155,7 @@ export const insertPredictionSchema = createInsertSchema(predictions).omit({
 
 export const insertVoteSchema = createInsertSchema(votes).omit({
   id: true,
+  userId: true, // Added by middleware
   createdAt: true,
 });
 

@@ -9,6 +9,8 @@ import Auth from "@/pages/auth";
 import Home from "@/pages/home";
 import Profile from "@/pages/profile";
 import Leaderboard from "@/pages/leaderboard";
+import Explore from "@/pages/explore";
+import Portfolio from "@/pages/portfolio";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -20,6 +22,8 @@ function Router() {
       ) : (
         <>
           <Route path="/" component={Home} />
+          <Route path="/explore" component={Explore} />
+          <Route path="/portfolio" component={Portfolio} />
           <Route path="/profile" component={Profile} />
           <Route path="/leaderboard" component={Leaderboard} />
         </>

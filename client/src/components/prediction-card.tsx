@@ -87,7 +87,7 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
           <div className="flex-1">
             <div className="flex items-center space-x-2">
               <span className="font-semibold text-gray-800 text-sm" data-testid={`text-predictor-name-${prediction.id}`}>
-                {prediction.user.firstName || prediction.user.email?.split('@')[0] || 'User'}
+                {prediction.user.firstName || prediction.user.username || prediction.user.email?.split('@')[0] || 'User'}
               </span>
               <Badge className="bg-success-green hover:bg-success-green text-white text-xs">
                 {prediction.user.totalPredictions > 0 
