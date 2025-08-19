@@ -1,0 +1,165 @@
+import { sql } from 'drizzle-orm';
+import {
+  index,
+  jsonb,
+  pgTable,
+  timestamp,
+  varchar,
+  text,
+  integer,
+  boolean,
+  decimal,
+} from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+// Session storage table for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// User storage table for Replit Auth
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  points: integer("points").default(1000).notNull(),
+  accuracyScore: decimal("accuracy_score", { precision: 5, scale: 2 }).default('0.00'),
+  totalPredictions: integer("total_predictions").default(0).notNull(),
+  correctPredictions: integer("correct_predictions").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const categories = pgTable("categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull().unique(),
+  emoji: varchar("emoji").notNull(),
+  color: varchar("color").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const predictions = pgTable("predictions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  categoryId: varchar("category_id").references(() => categories.id).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  resolutionDate: timestamp("resolution_date").notNull(),
+  resolved: boolean("resolved").default(false).notNull(),
+  resolvedValue: boolean("resolved_value"),
+  totalStakes: integer("total_stakes").default(0).notNull(),
+  totalPoints: integer("total_points").default(0).notNull(),
+  yesVotes: integer("yes_votes").default(0).notNull(),
+  noVotes: integer("no_votes").default(0).notNull(),
+  yesPoints: integer("yes_points").default(0).notNull(),
+  noPoints: integer("no_points").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const votes = pgTable("votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  predictionId: varchar("prediction_id").references(() => predictions.id).notNull(),
+  stance: boolean("stance").notNull(), // true for yes, false for no
+  pointsStaked: integer("points_staked").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Relations
+export const usersRelations = relations(users, ({ many }) => ({
+  predictions: many(predictions),
+  votes: many(votes),
+}));
+
+export const categoriesRelations = relations(categories, ({ many }) => ({
+  predictions: many(predictions),
+}));
+
+export const predictionsRelations = relations(predictions, ({ one, many }) => ({
+  user: one(users, {
+    fields: [predictions.userId],
+    references: [users.id],
+  }),
+  category: one(categories, {
+    fields: [predictions.categoryId],
+    references: [categories.id],
+  }),
+  votes: many(votes),
+}));
+
+export const votesRelations = relations(votes, ({ one }) => ({
+  user: one(users, {
+    fields: [votes.userId],
+    references: [users.id],
+  }),
+  prediction: one(predictions, {
+    fields: [votes.predictionId],
+    references: [predictions.id],
+  }),
+}));
+
+// Insert schemas
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCategorySchema = createInsertSchema(categories).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPredictionSchema = createInsertSchema(predictions).omit({
+  id: true,
+  totalStakes: true,
+  totalPoints: true,
+  yesVotes: true,
+  noVotes: true,
+  yesPoints: true,
+  noPoints: true,
+  resolved: true,
+  resolvedValue: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertVoteSchema = createInsertSchema(votes).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types
+export type UpsertUser = typeof users.$inferInsert;
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type Category = typeof categories.$inferSelect;
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
+
+export type Prediction = typeof predictions.$inferSelect;
+export type InsertPrediction = z.infer<typeof insertPredictionSchema>;
+
+export type Vote = typeof votes.$inferSelect;
+export type InsertVote = z.infer<typeof insertVoteSchema>;
+
+// Extended types with relations
+export type PredictionWithDetails = Prediction & {
+  user: User;
+  category: Category;
+  userVote?: Vote;
+  yesPercentage: number;
+  noPercentage: number;
+  timeRemaining: string;
+};
