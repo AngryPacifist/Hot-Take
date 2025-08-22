@@ -35,7 +35,7 @@
    - Click **"New +"** → **"Web Service"**
    - Connect your GitHub repository
    - Configure:
-     - **Build Command**: `npm run build`
+     - **Build Command**: `npm install && npm run build`
      - **Start Command**: `npm start`
      - **Environment**: Node
 
