@@ -11,17 +11,15 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Use different drivers based on environment
+
 let pool: any;
 let db: any;
 
 if (process.env.DATABASE_URL.includes('neon.tech') || process.env.DATABASE_URL.includes('pooler.supabase.com')) {
-  // Use Neon serverless driver for cloud databases
   neonConfig.webSocketConstructor = ws;
   pool = new Pool({ connectionString: process.env.DATABASE_URL });
   db = drizzle({ client: pool, schema });
 } else {
-  // Use standard PostgreSQL driver for local development
   pool = new NodePool({ connectionString: process.env.DATABASE_URL });
   db = drizzleNode(pool, { schema });
 }
