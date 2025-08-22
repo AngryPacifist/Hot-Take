@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hot Take - Social Predictions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    'primary-blue': '#0066FF',
+                    'primary-red': '#FF4757',
+                    'accent-purple': '#6C5CE7',
+                    'success-green': '#00B894',
+                    'warning-orange': '#FDCB6E',
+                    'dark-bg': '#2D3436',
+                    'light-border': '#DDD'
+                },
+                fontFamily: {
+                    'inter': ['Inter', 'sans-serif']
+                },
+                animation: {
+                    'bounce-gentle': 'bounce 1s infinite',
+                    'pulse-slow': 'pulse 2s infinite',
+                    'fade-in': 'fadeIn 0.3s ease-in'
+                }
+            }
+        }
+    };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .prediction-card {
+            transition: all 0.3s ease;
+        }
+        
+        .prediction-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        
+        .vote-button {
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .vote-button:active {
+            transform: scale(0.95);
+        }
+        
+        .ripple-effect {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.6);
+            transform: scale(0);
+            animation: ripple 0.6s linear;
+        }
+        
+        @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+        
+        .category-chip {
+            transition: all 0.2s ease;
+        }
+        
+        .category-chip:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter">
+    <!-- @COMPONENT: AppContainer [main app wrapper] -->
+    <div class="max-w-md mx-auto bg-white min-h-screen shadow-lg relative">
+        
+        <!-- @COMPONENT: TopNavigation [header with user info and navigation] -->
+        <header class="bg-white border-b border-light-border sticky top-0 z-50 px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <!-- User avatar placeholder -->
+                    <!-- A professional headshot of a person in business attire -->
+                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=150&h=150" 
+                         alt="User avatar" 
+                         class="w-8 h-8 rounded-full border-2 border-accent-purple"
+                         data-mock="true">
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-800" data-bind="user.name" data-mock="true">Alex Chen</h2>
+                        <div class="flex items-center space-x-1">
+                            <i class="fas fa-coins text-accent-purple text-xs"></i>
+                            <span class="text-xs text-gray-600 font-medium" data-bind="user.points" data-mock="true">2,847 pts</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-3">
+                    <!-- Notification icon -->
+                    <button class="relative p-2 hover:bg-gray-100 rounded-full transition-colors" data-event="click:openNotifications">
+                        <i class="fas fa-bell text-gray-600"></i>
+                        <span class="absolute -top-1 -right-1 bg-primary-red text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">3</span>
+                    </button>
+                    
+                    <!-- Settings icon -->
+                    <button class="p-2 hover:bg-gray-100 rounded-full transition-colors" data-event="click:openSettings">
+                        <i class="fas fa-cog text-gray-600"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+        <!-- @END_COMPONENT: TopNavigation -->
+
+        <!-- @COMPONENT: CategoryFilters [horizontal scrolling category filters] -->
+        <div class="bg-white border-b border-light-border px-4 py-3">
+            <div class="flex space-x-2 overflow-x-auto hide-scrollbar">
+                <button class="category-chip bg-accent-purple text-white px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-event="click:filterByCategory" data-category="all">
+                    All
+                </button>
+                <button class="category-chip bg-gray-100 text-gray-700 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap hover:bg-gray-200" data-event="click:filterByCategory" data-category="tech">
+                    🚀 Tech
+                </button>
+                <button class="category-chip bg-gray-100 text-gray-700 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap hover:bg-gray-200" data-event="click:filterByCategory" data-category="sports">
+                    ⚽ Sports
+                </button>
+                <button class="category-chip bg-gray-100 text-gray-700 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap hover:bg-gray-200" data-event="click:filterByCategory" data-category="crypto">
+                    💰 Crypto
+                </button>
+                <button class="category-chip bg-gray-100 text-gray-700 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap hover:bg-gray-200" data-event="click:filterByCategory" data-category="memes">
+                    😂 Memes
+                </button>
+                <button class="category-chip bg-gray-100 text-gray-700 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap hover:bg-gray-200" data-event="click:filterByCategory" data-category="food">
+                    🍕 Food
+                </button>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: CategoryFilters -->
+
+        <!-- @COMPONENT: InfiniteScrollFeed [main prediction feed] -->
+        <div class="pb-20 space-y-4 p-4" id="prediction-feed">
+            <!-- @STATE: predictions:array = [] -->
+            <!-- @STATE: loading:boolean = false -->
+            
+            <!-- @MAP: predictions.map(prediction => ( -->
+            <!-- @COMPONENT: PredictionCard [individual prediction card] -->
+            <div class="prediction-card bg-white rounded-xl border border-light-border shadow-sm p-4" data-mock="true">
+                <div class="flex items-start space-x-3 mb-3">
+                    <!-- A professional headshot of a woman in tech industry -->
+                    <img src="https://pixabay.com/get/g1f51209d23359cdaa8969711ca9551df66dacb19c220744743cf16da0715b8f6cd34d06a88518da1d0e26c5e035e27898774633c9118a8b17d52b4661f1a61ac_1280.jpg" 
+                         alt="Predictor avatar" 
+                         class="w-10 h-10 rounded-full"
+                         data-mock-image="true">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-semibold text-gray-800 text-sm" data-bind="prediction.author.name" data-mock="true">Sarah Kim</span>
+                            <span class="bg-success-green text-white text-xs px-2 py-1 rounded-full font-medium">94% accuracy</span>
+                        </div>
+                        <div class="flex items-center space-x-2 text-xs text-gray-500 mt-1">
+                            <span data-bind="prediction.timeAgo" data-mock="true">2h ago</span>
+                            <span>•</span>
+                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">🚀 Tech</span>
+                        </div>
+                    </div>
+                    <button class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="fas fa-ellipsis-h"></i>
+                    </button>
+                </div>
+
+                <div class="mb-4">
+                    <h3 class="text-gray-900 font-semibold mb-2 leading-relaxed" data-bind="prediction.title" data-mock="true">
+                        Apple will announce a foldable iPhone at WWDC 2024
+                    </h3>
+                    <p class="text-gray-600 text-sm leading-relaxed" data-bind="prediction.description" data-mock="true">
+                        With all the patents and supply chain rumors, plus the pressure from Samsung and Google's foldables, Apple has to make a move this year. WWDC is the perfect stage for such an announcement.
+                    </p>
+                </div>
+
+                <!-- Prediction Stats -->
+                <div class="flex items-center justify-between mb-4 bg-gray-50 rounded-lg p-3">
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-gray-800" data-bind="prediction.totalStakes" data-mock="true">1,247</div>
+                        <div class="text-xs text-gray-500">Total Votes</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-accent-purple" data-bind="prediction.totalPoints" data-mock="true">50K</div>
+                        <div class="text-xs text-gray-500">Points Staked</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-gray-800" data-bind="prediction.timeRemaining" data-mock="true">23d</div>
+                        <div class="text-xs text-gray-500">Time Left</div>
+                    </div>
+                </div>
+
+                <!-- Voting Buttons -->
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <button class="vote-button bg-primary-blue hover:bg-blue-600 text-white font-semibold py-4 px-6 rounded-xl transition-all active:scale-95" 
+                            data-event="click:voteYes" 
+                            data-implementation="Should update user stake and prediction stats">
+                        <div class="flex items-center justify-center space-x-2">
+                            <i class="fas fa-thumbs-up"></i>
+                            <span>YES</span>
+                        </div>
+                        <div class="text-xs opacity-90 mt-1">67% voted yes</div>
+                    </button>
+                    <button class="vote-button bg-primary-red hover:bg-red-600 text-white font-semibold py-4 px-6 rounded-xl transition-all active:scale-95" 
+                            data-event="click:voteNo" 
+                            data-implementation="Should update user stake and prediction stats">
+                        <div class="flex items-center justify-center space-x-2">
+                            <i class="fas fa-thumbs-down"></i>
+                            <span>NO</span>
+                        </div>
+                        <div class="text-xs opacity-90 mt-1">33% voted no</div>
+                    </button>
+                </div>
+
+                <!-- Action Bar -->
+                <div class="flex items-center justify-between pt-3 border-t border-gray-100">
+                    <div class="flex items-center space-x-4">
+                        <button class="flex items-center space-x-1 text-gray-500 hover:text-gray-700 transition-colors" data-event="click:sharePrediction">
+                            <i class="fas fa-share text-sm"></i>
+                            <span class="text-sm">Share</span>
+                        </button>
+                        <button class="flex items-center space-x-1 text-gray-500 hover:text-gray-700 transition-colors" data-event="click:bookmarkPrediction">
+                            <i class="fas fa-bookmark text-sm"></i>
+                            <span class="text-sm">Save</span>
+                        </button>
+                    </div>
+                    <button class="bg-accent-purple hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors" 
+                            data-event="click:viewDetails">
+                        Details
+                    </button>
+                </div>
+            </div>
+            <!-- @END_COMPONENT: PredictionCard -->
+
+            <!-- Second prediction card -->
+            <div class="prediction-card bg-white rounded-xl border border-light-border shadow-sm p-4" data-mock="true">
+                <div class="flex items-start space-x-3 mb-3">
+                    <!-- A professional headshot of a man in casual business attire -->
+                    <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=150&h=150" 
+                         alt="Predictor avatar" 
+                         class="w-10 h-10 rounded-full"
+                         data-mock-image="true">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-semibold text-gray-800 text-sm" data-mock="true">Mike Rodriguez</span>
+                            <span class="bg-warning-orange text-white text-xs px-2 py-1 rounded-full font-medium">78% accuracy</span>
+                        </div>
+                        <div class="flex items-center space-x-2 text-xs text-gray-500 mt-1">
+                            <span data-mock="true">4h ago</span>
+                            <span>•</span>
+                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full">⚽ Sports</span>
+                        </div>
+                    </div>
+                    <button class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="fas fa-ellipsis-h"></i>
+                    </button>
+                </div>
+
+                <div class="mb-4">
+                    <h3 class="text-gray-900 font-semibold mb-2 leading-relaxed" data-mock="true">
+                        Lionel Messi will score a hat-trick in the next Argentina match
+                    </h3>
+                    <p class="text-gray-600 text-sm leading-relaxed" data-mock="true">
+                        He's been in incredible form lately and historically performs amazing against this opponent. The odds are good and his motivation is sky-high right now.
+                    </p>
+                </div>
+
+                <!-- Prediction Stats -->
+                <div class="flex items-center justify-between mb-4 bg-gray-50 rounded-lg p-3">
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-gray-800" data-mock="true">892</div>
+                        <div class="text-xs text-gray-500">Total Votes</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-accent-purple" data-mock="true">34K</div>
+                        <div class="text-xs text-gray-500">Points Staked</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-gray-800" data-mock="true">3d</div>
+                        <div class="text-xs text-gray-500">Time Left</div>
+                    </div>
+                </div>
+
+                <!-- Voting Buttons -->
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <button class="vote-button bg-primary-blue hover:bg-blue-600 text-white font-semibold py-4 px-6 rounded-xl transition-all active:scale-95">
+                        <div class="flex items-center justify-center space-x-2">
+                            <i class="fas fa-thumbs-up"></i>
+                            <span>YES</span>
+                        </div>
+                        <div class="text-xs opacity-90 mt-1">42% voted yes</div>
+                    </button>
+                    <button class="vote-button bg-primary-red hover:bg-red-600 text-white font-semibold py-4 px-6 rounded-xl transition-all active:scale-95">
+                        <div class="flex items-center justify-center space-x-2">
+                            <i class="fas fa-thumbs-down"></i>
+                            <span>NO</span>
+                        </div>
+                        <div class="text-xs opacity-90 mt-1">58% voted no</div>
+                    </button>
+                </div>
+
+                <!-- Action Bar -->
+                <div class="flex items-center justify-between pt-3 border-t border-gray-100">
+                    <div class="flex items-center space-x-4">
+                        <button class="flex items-center space-x-1 text-gray-500 hover:text-gray-700 transition-colors">
+                            <i class="fas fa-share text-sm"></i>
+                            <span class="text-sm">Share</span>
+                        </button>
+                        <button class="flex items-center space-x-1 text-gray-500 hover:text-gray-700 transition-colors">
+                            <i class="fas fa-bookmark text-sm"></i>
+                            <span class="text-sm">Save</span>
+                        </button>
+                    </div>
+                    <button class="bg-accent-purple hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        Details
+                    </button>
+                </div>
+            </div>
+
+            <!-- Third prediction card -->
+            <div class="prediction-card bg-white rounded-xl border border-light-border shadow-sm p-4" data-mock="true">
+                <div class="flex items-start space-x-3 mb-3">
+                    <!-- A professional headshot of a young entrepreneur -->
+                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=150&h=150" 
+                         alt="Predictor avatar" 
+                         class="w-10 h-10 rounded-full"
+                         data-mock-image="true">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-semibold text-gray-800 text-sm" data-mock="true">Emma Zhang</span>
+                            <span class="bg-success-green text-white text-xs px-2 py-1 rounded-full font-medium">91% accuracy</span>
+                        </div>
+                        <div class="flex items-center space-x-2 text-xs text-gray-500 mt-1">
+                            <span data-mock="true">6h ago</span>
+                            <span>•</span>
+                            <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">💰 Crypto</span>
+                        </div>
+                    </div>
+                    <button class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="fas fa-ellipsis-h"></i>
+                    </button>
+                </div>
+
+                <div class="mb-4">
+                    <h3 class="text-gray-900 font-semibold mb-2 leading-relaxed" data-mock="true">
+                        Bitcoin will break $100K before the end of 2024
+                    </h3>
+                    <p class="text-gray-600 text-sm leading-relaxed" data-mock="true">
+                        With institutional adoption increasing, ETF approvals, and the upcoming halving event, all indicators point to a major bull run. The technical analysis supports this target.
+                    </p>
+                </div>
+
+                <!-- Prediction Stats -->
+                <div class="flex items-center justify-between mb-4 bg-gray-50 rounded-lg p-3">
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-gray-800" data-mock="true">2,156</div>
+                        <div class="text-xs text-gray-500">Total Votes</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-accent-purple" data-mock="true">89K</div>
+                        <div class="text-xs text-gray-500">Points Staked</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-gray-800" data-mock="true">156d</div>
+                        <div class="text-xs text-gray-500">Time Left</div>
+                    </div>
+                </div>
+
+                <!-- Voting Buttons -->
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <button class="vote-button bg-primary-blue hover:bg-blue-600 text-white font-semibold py-4 px-6 rounded-xl transition-all active:scale-95">
+                        <div class="flex items-center justify-center space-x-2">
+                            <i class="fas fa-thumbs-up"></i>
+                            <span>YES</span>
+                        </div>
+                        <div class="text-xs opacity-90 mt-1">73% voted yes</div>
+                    </button>
+                    <button class="vote-button bg-primary-red hover:bg-red-600 text-white font-semibold py-4 px-6 rounded-xl transition-all active:scale-95">
+                        <div class="flex items-center justify-center space-x-2">
+                            <i class="fas fa-thumbs-down"></i>
+                            <span>NO</span>
+                        </div>
+                        <div class="text-xs opacity-90 mt-1">27% voted no</div>
+                    </button>
+                </div>
+
+                <!-- Action Bar -->
+                <div class="flex items-center justify-between pt-3 border-t border-gray-100">
+                    <div class="flex items-center space-x-4">
+                        <button class="flex items-center space-x-1 text-gray-500 hover:text-gray-700 transition-colors">
+                            <i class="fas fa-share text-sm"></i>
+                            <span class="text-sm">Share</span>
+                        </button>
+                        <button class="flex items-center space-x-1 text-gray-500 hover:text-gray-700 transition-colors">
+                            <i class="fas fa-bookmark text-sm"></i>
+                            <span class="text-sm">Save</span>
+                        </button>
+                    </div>
+                    <button class="bg-accent-purple hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        Details
+                    </button>
+                </div>
+            </div>
+            <!-- @END_MAP )) -->
+
+            <!-- Loading indicator for infinite scroll -->
+            <div class="flex justify-center py-8" id="loading-indicator" style="display: none;">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-purple"></div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: InfiniteScrollFeed -->
+
+        <!-- @COMPONENT: FloatingActionButton [create new prediction] -->
+        <button class="fixed bottom-24 right-6 bg-accent-purple hover:bg-purple-600 text-white w-14 h-14 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 z-40" 
+                data-event="click:createPrediction" 
+                data-implementation="Should open prediction creation modal">
+            <i class="fas fa-plus text-xl"></i>
+        </button>
+        <!-- @END_COMPONENT: FloatingActionButton -->
+
+        <!-- @COMPONENT: BottomNavigation [main navigation tabs] -->
+        <nav class="fixed bottom-0 left-1/2 transform -translate-x-1/2 max-w-md w-full bg-white border-t border-light-border z-50">
+            <div class="grid grid-cols-5 py-2">
+                <button class="flex flex-col items-center py-2 px-1 text-accent-purple transition-colors" data-event="click:navigateToFeed">
+                    <i class="fas fa-home text-lg mb-1"></i>
+                    <span class="text-xs font-medium">Feed</span>
+                </button>
+                <button class="flex flex-col items-center py-2 px-1 text-gray-400 hover:text-gray-600 transition-colors" data-event="click:navigateToExplore">
+                    <i class="fas fa-search text-lg mb-1"></i>
+                    <span class="text-xs">Explore</span>
+                </button>
+                <button class="flex flex-col items-center py-2 px-1 text-gray-400 hover:text-gray-600 transition-colors" data-event="click:navigateToLeaderboard">
+                    <i class="fas fa-trophy text-lg mb-1"></i>
+                    <span class="text-xs">Rankings</span>
+                </button>
+                <button class="flex flex-col items-center py-2 px-1 text-gray-400 hover:text-gray-600 transition-colors" data-event="click:navigateToPortfolio">
+                    <i class="fas fa-chart-line text-lg mb-1"></i>
+                    <span class="text-xs">Portfolio</span>
+                </button>
+                <button class="flex flex-col items-center py-2 px-1 text-gray-400 hover:text-gray-600 transition-colors" data-event="click:navigateToProfile">
+                    <i class="fas fa-user text-lg mb-1"></i>
+                    <span class="text-xs">Profile</span>
+                </button>
+            </div>
+        </nav>
+        <!-- @END_COMPONENT: BottomNavigation -->
+
+        <!-- @COMPONENT: CreatePredictionModal [modal for creating new predictions] -->
+        <div id="create-prediction-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+            <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 max-w-md w-full bg-white rounded-t-2xl p-6 animate-fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">Create Hot Take</h3>
+                    <button class="text-gray-400 hover:text-gray-600" data-event="click:closeModal">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <form class="space-y-4" data-implementation="Should handle prediction creation">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Your Prediction</label>
+                        <textarea class="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-accent-purple focus:border-transparent" 
+                                  rows="3" 
+                                  placeholder="Make your hot take..." 
+                                  data-mock="true"></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                        <select class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent-purple focus:border-transparent" data-mock="true">
+                            <option>🚀 Tech</option>
+                            <option>⚽ Sports</option>
+                            <option>💰 Crypto</option>
+                            <option>😂 Memes</option>
+                            <option>🍕 Food</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Resolution Date</label>
+                        <input type="date" 
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent-purple focus:border-transparent" 
+                               data-mock="true">
+                    </div>
+                    
+                    <button type="submit" 
+                            class="w-full bg-accent-purple hover:bg-purple-600 text-white font-semibold py-3 rounded-lg transition-colors" 
+                            data-event="click:submitPrediction">
+                        Create Prediction
+                    </button>
+                </form>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: CreatePredictionModal -->
+
+    </div>
+    <!-- @END_COMPONENT: AppContainer -->
+
+    <!-- @FUNCTIONALITY: Infinite scroll implementation, voting system, real-time updates -->
+    <script>
+        (function() {
+            // TODO: Implement business logic, API calls, or state management
+            
+            // Demo interaction handlers
+            let isLoading = false;
+            
+            // Infinite scroll implementation
+            function handleInfiniteScroll() {
+                const threshold = 100;
+                const scrollPosition = window.innerHeight + window.scrollY;
+                const documentHeight = document.documentElement.offsetHeight;
+                
+                if (scrollPosition >= documentHeight - threshold && !isLoading) {
+                    isLoading = true;
+                    const loadingIndicator = document.getElementById('loading-indicator');
+                    if (loadingIndicator) {
+                        loadingIndicator.style.display = 'flex';
+                        
+                        // Simulate loading delay
+                        setTimeout(() => {
+                            loadingIndicator.style.display = 'none';
+                            isLoading = false;
+                        }, 1500);
+                    }
+                }
+            }
+            
+            // Vote button interactions with visual feedback
+            function handleVoteClick(event) {
+                const button = event.currentTarget;
+                const rect = button.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                
+                // Create ripple effect
+                const ripple = document.createElement('span');
+                ripple.className = 'ripple-effect';
+                ripple.style.left = x + 'px';
+                ripple.style.top = y + 'px';
+                button.appendChild(ripple);
+                
+                setTimeout(() => {
+                    ripple.remove();
+                }, 600);
+                
+                // Simulate vote confirmation
+                setTimeout(() => {
+                    button.classList.add('opacity-75');
+                    button.disabled = true;
+                }, 200);
+            }
+            
+            // Modal handling
+            function openCreateModal() {
+                const modal = document.getElementById('create-prediction-modal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    document.body.style.overflow = 'hidden';
+                }
+            }
+            
+            function closeCreateModal() {
+                const modal = document.getElementById('create-prediction-modal');
+                if (modal) {
+                    modal.classList.add('hidden');
+                    document.body.style.overflow = 'auto';
+                }
+            }
+            
+            // Category filter handling
+            function handleCategoryFilter(event) {
+                const button = event.currentTarget;
+                const category = button.dataset.category;
+                
+                // Remove active state from all category buttons
+                document.querySelectorAll('.category-chip').forEach(chip => {
+                    chip.className = chip.className.replace('bg-accent-purple text-white', 'bg-gray-100 text-gray-700');
+                });
+                
+                // Add active state to clicked button
+                button.className = button.className.replace('bg-gray-100 text-gray-700', 'bg-accent-purple text-white');
+            }
+            
+            // Event listeners
+            window.addEventListener('scroll', handleInfiniteScroll);
+            
+            // Attach vote button listeners
+            document.querySelectorAll('.vote-button').forEach(button => {
+                button.addEventListener('click', handleVoteClick);
+            });
+            
+            // Attach category filter listeners
+            document.querySelectorAll('.category-chip').forEach(chip => {
+                chip.addEventListener('click', handleCategoryFilter);
+            });
+            
+            // Modal controls
+            document.querySelector('[data-event="click:createPrediction"]')?.addEventListener('click', openCreateModal);
+            document.querySelector('[data-event="click:closeModal"]')?.addEventListener('click', closeCreateModal);
+            
+            // Close modal when clicking outside
+            document.getElementById('create-prediction-modal')?.addEventListener('click', function(event) {
+                if (event.target === this) {
+                    closeCreateModal();
+                }
+            });
+            
+            // Pull to refresh simulation
+            let startY = 0;
+            let currentY = 0;
+            let isPulling = false;
+            
+            document.addEventListener('touchstart', function(e) {
+                startY = e.touches[0].pageY;
+                isPulling = window.scrollY === 0;
+            });
+            
+            document.addEventListener('touchmove', function(e) {
+                if (!isPulling) return;
+                
+                currentY = e.touches[0].pageY;
+                const pullDistance = currentY - startY;
+                
+                if (pullDistance > 100) {
+                    // Simulate refresh
+                    console.log('Pull to refresh triggered');
+                }
+            });
+            
+            document.addEventListener('touchend', function() {
+                isPulling = false;
+            });
+            
+        })();
+    </script>
+</body>
+</html>
