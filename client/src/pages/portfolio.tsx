@@ -16,21 +16,27 @@ export default function Portfolio() {
   const [activeTab, setActiveTab] = useState("overview");
 
   // Mock data for user's predictions and votes since we need to implement these endpoints
-  const { data: userPredictions = [], isLoading: loadingPredictions } = useQuery({
+  const { data: userPredictions = [], isLoading: loadingPredictions } = useQuery<PredictionWithDetails[]>({
     queryKey: ["/api/predictions", "user", user?.id],
     queryFn: async () => {
       // This would need to be implemented in the backend
       const response = await fetch(`/api/predictions?userId=${user?.id}`);
+      if (!response.ok) {
+        return [];
+      }
       return response.json();
     },
     enabled: !!user?.id,
   });
 
-  const { data: userVotes = [], isLoading: loadingVotes } = useQuery({
+  const { data: userVotes = [], isLoading: loadingVotes } = useQuery<Vote[]>({
     queryKey: ["/api/votes", "user", user?.id],
     queryFn: async () => {
       // This would need to be implemented in the backend
       const response = await fetch(`/api/votes?userId=${user?.id}`);
+      if (!response.ok) {
+        return [];
+      }
       return response.json();
     },
     enabled: !!user?.id,
@@ -38,18 +44,16 @@ export default function Portfolio() {
 
   if (!user) return null;
 
-  const typedUser = user as User;
-
   // Calculate portfolio stats
   const totalPredictions = userPredictions.length;
   const totalVotes = userVotes.length;
-  const totalPointsStaked = userVotes.reduce((sum: number, vote: any) => sum + vote.pointsStaked, 0);
-  const accuracyRate = typedUser.totalPredictions > 0 
-    ? Math.round((typedUser.correctPredictions / typedUser.totalPredictions) * 100)
+  const totalPointsStaked = userVotes.reduce((sum, vote) => sum + vote.pointsStaked, 0);
+  const accuracyRate = user.totalPredictions > 0
+    ? Math.round((user.correctPredictions / user.totalPredictions) * 100)
     : 0;
 
-  const activePredictions = userPredictions.filter((p: any) => !p.resolved);
-  const resolvedPredictions = userPredictions.filter((p: any) => p.resolved);
+  const activePredictions = userPredictions.filter((p) => !p.resolved);
+  const resolvedPredictions = userPredictions.filter((p) => p.resolved);
 
   return (
     <div className="max-w-md mx-auto bg-white min-h-screen">
@@ -61,7 +65,7 @@ export default function Portfolio() {
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-accent-purple" data-testid="text-total-points">
-                {typedUser.points?.toLocaleString()}
+                {user.points?.toLocaleString()}
               </div>
               <div className="text-sm text-gray-600">Total Points</div>
             </CardContent>
@@ -177,7 +181,7 @@ export default function Portfolio() {
               </div>
             ) : userVotes.length > 0 ? (
               <div className="space-y-4">
-                {userVotes.map((vote: any) => (
+                {userVotes.map((vote) => (
                   <Card key={vote.id}>
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">

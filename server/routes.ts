@@ -191,6 +191,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...validatedData,
         userId,
       });
+
+      // Update user's total predictions count
+      await storage.updateUserStats(userId);
       
       res.status(201).json(prediction);
     } catch (error) {
