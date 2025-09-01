@@ -9,40 +9,27 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, TrendingDown, Target, Clock, CheckCircle, XCircle } from "lucide-react";
-import type { PredictionWithDetails, Vote, User } from "@shared/schema";
+import type { PredictionWithDetails, Vote, User, UserProfile } from "@shared/schema";
 
 export default function Portfolio() {
-  const { user } = useAuth();
+  const { user: authUser } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Mock data for user's predictions and votes since we need to implement these endpoints
-  const { data: userPredictions = [], isLoading: loadingPredictions } = useQuery<PredictionWithDetails[]>({
-    queryKey: ["/api/predictions", "user", user?.id],
+  const { data: userProfile, isLoading } = useQuery<UserProfile>({
+    queryKey: ["/api/users", authUser?.id],
     queryFn: async () => {
-      // This would need to be implemented in the backend
-      const response = await fetch(`/api/predictions?userId=${user?.id}`);
+      const response = await fetch(`/api/users/${authUser?.id}`);
       if (!response.ok) {
-        return [];
+        throw new Error('Failed to fetch user profile');
       }
       return response.json();
     },
-    enabled: !!user?.id,
+    enabled: !!authUser?.id,
   });
 
-  const { data: userVotes = [], isLoading: loadingVotes } = useQuery<Vote[]>({
-    queryKey: ["/api/votes", "user", user?.id],
-    queryFn: async () => {
-      // This would need to be implemented in the backend
-      const response = await fetch(`/api/votes?userId=${user?.id}`);
-      if (!response.ok) {
-        return [];
-      }
-      return response.json();
-    },
-    enabled: !!user?.id,
-  });
+  if (isLoading || !userProfile) return null; // Add a loading state or skeleton screen here
 
-  if (!user) return null;
+  const { predictions: userPredictions, votes: userVotes, ...user } = userProfile;
 
   // Calculate portfolio stats
   const totalPredictions = userPredictions.length;
@@ -147,7 +134,7 @@ export default function Portfolio() {
           </TabsContent>
 
           <TabsContent value="predictions" className="space-y-4">
-            {loadingPredictions ? (
+            {isLoading ? (
               <div className="space-y-4">
                 {[...Array(2)].map((_, i) => (
                   <div key={i} className="bg-gray-100 rounded-lg h-32 animate-pulse" />
@@ -173,7 +160,7 @@ export default function Portfolio() {
           </TabsContent>
 
           <TabsContent value="votes" className="space-y-4">
-            {loadingVotes ? (
+            {isLoading ? (
               <div className="space-y-4">
                 {[...Array(3)].map((_, i) => (
                   <div key={i} className="bg-gray-100 rounded-lg h-24 animate-pulse" />

@@ -184,3 +184,12 @@ export type PredictionWithDetails = Prediction & {
   noPercentage: number;
   timeRemaining: string;
 };
+
+export type VoteWithPrediction = Vote & {
+  prediction: Prediction;
+};
+
+export type UserProfile = User & {
+  predictions: PredictionWithDetails[];
+  votes: VoteWithPrediction[];
+};
