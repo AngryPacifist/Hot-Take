@@ -13,6 +13,7 @@ import {
   type InsertVote,
   type PredictionWithDetails,
   type RegisterData,
+  type UserProfile,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, isNull } from "drizzle-orm";
@@ -241,9 +242,65 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async getUserProfile(userId: string): Promise<User | undefined> {
+  async getUserProfile(userId: string): Promise<UserProfile | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, userId));
-    return user;
+    if (!user) {
+      return undefined;
+    }
+
+    const userPredictionsData = await db
+      .select({
+        prediction: predictions,
+        user: users,
+        category: categories,
+      })
+      .from(predictions)
+      .leftJoin(users, eq(predictions.userId, users.id))
+      .leftJoin(categories, eq(predictions.categoryId, categories.id))
+      .where(eq(predictions.userId, userId))
+      .orderBy(desc(predictions.createdAt));
+
+    const userPredictions = userPredictionsData.map((result: { prediction: Prediction, user: User, category: Category }) => {
+      const p = result.prediction;
+      const totalVotes = p.yesVotes + p.noVotes;
+      const yesPercentage = totalVotes > 0 ? Math.round((p.yesVotes / totalVotes) * 100) : 0;
+      const noPercentage = 100 - yesPercentage;
+      const now = new Date();
+      const timeLeft = new Date(p.resolutionDate).getTime() - now.getTime();
+      const daysLeft = Math.max(0, Math.ceil(timeLeft / (1000 * 60 * 60 * 24)));
+      const timeRemaining = daysLeft > 0 ? `${daysLeft}d` : "Ended";
+      return {
+        ...p,
+        user: result.user!,
+        category: result.category!,
+        yesPercentage,
+        noPercentage,
+        timeRemaining,
+      };
+    });
+
+    const userVotesData = await db
+      .select({
+        vote: votes,
+        prediction: predictions,
+      })
+      .from(votes)
+      .leftJoin(predictions, eq(votes.predictionId, predictions.id))
+      .where(eq(votes.userId, userId))
+      .orderBy(desc(votes.createdAt));
+
+    const votesWithPrediction = userVotesData
+      .filter((r: { vote: Vote, prediction: Prediction | null }): r is { vote: Vote; prediction: Prediction } => r.prediction !== null)
+      .map(({ vote, prediction }: { vote: Vote, prediction: Prediction }) => ({
+        ...vote,
+        prediction: prediction,
+      }));
+
+    return {
+      ...user,
+      predictions: userPredictions,
+      votes: votesWithPrediction,
+    };
   }
 }
 
