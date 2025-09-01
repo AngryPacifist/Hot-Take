@@ -29,7 +29,7 @@ export interface IStorage {
   createCategory(category: InsertCategory): Promise<Category>;
   
   // Prediction operations
-  getPredictions(limit?: number, offset?: number, categoryId?: string): Promise<PredictionWithDetails[]>;
+  getPredictions(limit?: number, offset?: number, categoryId?: string, sortBy?: "recent" | "trending" | "ending_soon", searchQuery?: string): Promise<PredictionWithDetails[]>;
   getPrediction(id: string): Promise<PredictionWithDetails | undefined>;
   createPrediction(prediction: InsertPrediction & { userId: string }): Promise<Prediction>;
   updatePredictionStats(predictionId: string): Promise<void>;
@@ -75,8 +75,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Prediction operations
-  async getPredictions(limit = 20, offset = 0, categoryId?: string): Promise<PredictionWithDetails[]> {
-    const query = db
+  async getPredictions(limit = 20, offset = 0, categoryId?: string, sortBy: "recent" | "trending" | "ending_soon" = "trending", searchQuery?: string): Promise<PredictionWithDetails[]> {
+    const whereClauses = and(
+      categoryId ? eq(predictions.categoryId, categoryId) : undefined,
+      searchQuery ? sql`(${predictions.title} ILIKE ${'%' + searchQuery + '%'} OR ${predictions.description} ILIKE ${'%' + searchQuery + '%'})` : undefined
+    );
+
+    let query = db
       .select({
         prediction: predictions,
         user: users,
@@ -85,12 +90,19 @@ export class DatabaseStorage implements IStorage {
       .from(predictions)
       .leftJoin(users, eq(predictions.userId, users.id))
       .leftJoin(categories, eq(predictions.categoryId, categories.id))
-      .where(categoryId ? eq(predictions.categoryId, categoryId) : undefined)
-      .orderBy(desc(predictions.createdAt))
-      .limit(limit)
-      .offset(offset);
+      .where(whereClauses);
 
-    const results = await query;
+    if (sortBy === "recent") {
+      query = query.orderBy(desc(predictions.createdAt));
+    } else if (sortBy === "trending") {
+      query = query.orderBy(sql`("total_stakes" + "yes_votes" + "no_votes") DESC`);
+    } else if (sortBy === "ending_soon") {
+      query = query.orderBy(predictions.resolutionDate);
+    } else {
+      query = query.orderBy(desc(predictions.createdAt));
+    }
+
+    const results = await query.limit(limit).offset(offset);
     
     return results.map((result: { prediction: Prediction, user: User, category: Category }) => {
       const prediction = result.prediction;

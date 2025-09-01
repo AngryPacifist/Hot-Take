@@ -135,8 +135,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = parseInt(req.query.limit as string) || 20;
       const offset = parseInt(req.query.offset as string) || 0;
       const categoryId = req.query.categoryId as string;
-      
-      const predictions = await storage.getPredictions(limit, offset, categoryId);
+      const sortBy = req.query.sortBy as "recent" | "trending" | "ending_soon";
+      const searchQuery = req.query.searchQuery as string;
+
+      const predictions = await storage.getPredictions(limit, offset, categoryId, sortBy, searchQuery);
       
       // If user is authenticated, include their votes
       if (req.session && (req.session as any).userId) {

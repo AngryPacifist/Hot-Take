@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import TopNavigation from "@/components/top-navigation";
 import CategoryFilters from "@/components/category-filters";
 import PredictionCard from "@/components/prediction-card";
@@ -10,39 +10,38 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { PredictionWithDetails } from "@shared/schema";
 
+const PREDICTIONS_PER_PAGE = 10;
+
 export default function Explore() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "trending" | "ending_soon">("trending");
 
-  const { data: predictions = [], isLoading } = useQuery({
-    queryKey: ["/api/predictions", selectedCategory, sortBy],
-    queryFn: () => {
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+  } = useInfiniteQuery({
+    queryKey: ["/api/predictions", selectedCategory, sortBy, searchQuery],
+    queryFn: ({ pageParam = 0 }) => {
       const params = new URLSearchParams({
-        limit: "50",
-        ...(selectedCategory && { categoryId: selectedCategory })
+        limit: String(PREDICTIONS_PER_PAGE),
+        offset: String(pageParam * PREDICTIONS_PER_PAGE),
+        sortBy,
+        ...(selectedCategory && { categoryId: selectedCategory }),
+        ...(searchQuery && { searchQuery }),
       });
       return fetch(`/api/predictions?${params}`).then(res => res.json());
     },
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.length === PREDICTIONS_PER_PAGE ? allPages.length : undefined;
+    },
+    initialPageParam: 0,
   });
 
-  const filteredPredictions = predictions.filter((prediction: PredictionWithDetails) =>
-    prediction.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    prediction.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const sortedPredictions = [...filteredPredictions].sort((a, b) => {
-    if (sortBy === "recent") {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    }
-    if (sortBy === "trending") {
-      return (b.totalStakes + b.yesVotes + b.noVotes) - (a.totalStakes + a.yesVotes + a.noVotes);
-    }
-    if (sortBy === "ending_soon") {
-      return new Date(a.resolutionDate).getTime() - new Date(b.resolutionDate).getTime();
-    }
-    return 0;
-  });
+  const allPredictions = data?.pages.flat() || [];
 
   return (
     <div className="max-w-md mx-auto bg-white min-h-screen">
@@ -104,7 +103,7 @@ export default function Explore() {
         {/* Results Summary */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600" data-testid="text-results-count">
-            {sortedPredictions.length} predictions found
+            {allPredictions.length} predictions found
           </span>
           {searchQuery && (
             <Badge variant="outline" className="text-xs">
@@ -122,14 +121,24 @@ export default function Explore() {
               <div key={i} className="bg-gray-100 rounded-lg h-48 animate-pulse" />
             ))}
           </div>
-        ) : sortedPredictions.length > 0 ? (
+        ) : allPredictions.length > 0 ? (
           <div className="space-y-4">
-            {sortedPredictions.map((prediction: PredictionWithDetails) => (
+            {allPredictions.map((prediction: PredictionWithDetails) => (
               <PredictionCard
                 key={prediction.id}
                 prediction={prediction}
               />
             ))}
+            {hasNextPage && (
+              <Button
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                variant="outline"
+                className="w-full"
+              >
+                {isFetchingNextPage ? "Loading more..." : "Load More"}
+              </Button>
+            )}
           </div>
         ) : (
           <div className="text-center py-12">
