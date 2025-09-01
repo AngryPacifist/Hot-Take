@@ -2,14 +2,11 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, hashPassword, comparePassword, loginUser, logoutUser } from "./auth";
+import { isAuthenticated, hashPassword, comparePassword, loginUser, logoutUser } from "./auth";
 import { insertPredictionSchema, insertVoteSchema, loginSchema, registerSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
-
   // Initialize default categories
   const defaultCategories = [
     { name: "Tech", emoji: "🚀", color: "bg-blue-100 text-blue-800" },
