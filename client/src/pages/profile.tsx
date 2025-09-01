@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import type { User as UserType } from "@shared/schema";
 import TopNavigation from "@/components/top-navigation";
 import BottomNavigation from "@/components/bottom-navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,7 @@ import { User, Award, TrendingUp, Target } from "lucide-react";
 export default function Profile() {
   const { user, isLoading } = useAuth();
   
-  const { data: userProfile } = useQuery({
+  const { data: userProfile } = useQuery<UserType>({
     queryKey: ["/api/users", user?.id],
     enabled: !!user?.id,
   });

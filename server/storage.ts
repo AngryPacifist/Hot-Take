@@ -91,7 +91,7 @@ export class DatabaseStorage implements IStorage {
 
     const results = await query;
     
-    return results.map((result) => {
+    return results.map((result: { prediction: Prediction, user: User, category: Category }) => {
       const prediction = result.prediction;
       const totalVotes = prediction.yesVotes + prediction.noVotes;
       const yesPercentage = totalVotes > 0 ? Math.round((prediction.yesVotes / totalVotes) * 100) : 0;
