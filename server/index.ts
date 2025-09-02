@@ -7,6 +7,8 @@ import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 const app = express();
 // Running behind Railway/Proxy - trust first proxy so req.secure is correct
@@ -66,6 +68,19 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Ensure required tables exist (for environments where migrations aren't run)
+  try {
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS "password_reset_tokens" (
+      "token" varchar PRIMARY KEY,
+      "user_id" varchar NOT NULL REFERENCES "users"("id"),
+      "expires_at" timestamp NOT NULL,
+      "used_at" timestamp,
+      "created_at" timestamp DEFAULT now()
+    );`);
+  } catch (e) {
+    log(`failed ensuring password_reset_tokens table: ${(e as any)?.message || e}`, "db");
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
