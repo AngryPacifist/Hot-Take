@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { isAuthenticated, hashPassword, comparePassword, loginUser, logoutUser } from "./auth";
+import { isAuthenticated, hashPassword, comparePassword, isBcryptHash, loginUser, logoutUser } from "./auth";
 import { insertPredictionSchema, insertVoteSchema, loginSchema, registerSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -70,8 +70,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid username or password" });
       }
 
-      // Verify password
-      const isValid = await comparePassword(validatedData.password, user.password);
+      // Verify password. If the stored password isn't a bcrypt hash, treat it
+      // as a legacy plaintext and migrate to bcrypt on successful login.
+      let isValid = false;
+      if (isBcryptHash(user.password)) {
+        isValid = await comparePassword(validatedData.password, user.password);
+      } else {
+        // legacy path: compare plaintext
+        isValid = validatedData.password === (user.password as unknown as string);
+        if (isValid) {
+          // upgrade to bcrypt
+          const newHash = await hashPassword(validatedData.password);
+          await storage.updateUserPassword(user.id, newHash);
+        }
+      }
+
       if (!isValid) {
         return res.status(401).json({ message: "Invalid username or password" });
       }

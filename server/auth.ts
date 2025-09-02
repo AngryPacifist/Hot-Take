@@ -16,6 +16,11 @@ export async function comparePassword(password: string, hash: string): Promise<b
   return bcrypt.compare(password, hash);
 }
 
+// Detect whether a string looks like a bcrypt hash
+export function isBcryptHash(value: string): boolean {
+  return /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(value);
+}
+
 export async function loginUser(req: any, userData: any) {
   (req.session as any).userId = userData.id;
   (req.session as any).user = userData;
