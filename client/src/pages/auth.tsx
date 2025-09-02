@@ -31,11 +31,23 @@ const registerSchema = z.object({
   lastName: z.string().optional(),
 });
 
+const requestResetSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+});
+
+const performResetSchema = z.object({
+  token: z.string().min(1, "Token is required"),
+  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+});
+
 type LoginForm = z.infer<typeof loginSchema>;
 type RegisterForm = z.infer<typeof registerSchema>;
+type RequestResetForm = z.infer<typeof requestResetSchema>;
+type PerformResetForm = z.infer<typeof performResetSchema>;
 
 export default function Auth() {
   const [activeTab, setActiveTab] = useState("login");
+  const [showReset, setShowReset] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -56,6 +68,16 @@ export default function Auth() {
       firstName: "",
       lastName: "",
     },
+  });
+
+  const requestResetForm = useForm<RequestResetForm>({
+    resolver: zodResolver(requestResetSchema),
+    defaultValues: { username: "" },
+  });
+
+  const performResetForm = useForm<PerformResetForm>({
+    resolver: zodResolver(performResetSchema),
+    defaultValues: { token: "", newPassword: "" },
   });
 
   const loginMutation = useMutation({
@@ -93,6 +115,45 @@ export default function Auth() {
       toast({
         title: "Registration failed",
         description: error.message || "Failed to create account",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const requestResetMutation = useMutation({
+    mutationFn: async (data: RequestResetForm) => {
+      const res = await apiRequest("POST", "/api/auth/request-password-reset", data);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      // For development, we show the token in the toast response
+      toast({
+        title: "Password reset link created",
+        description: typeof data?.token === "string" ? `Token: ${data.token}` : "If that account exists, you'll receive a reset link.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Request failed",
+        description: error.message || "Could not create reset request",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const performResetMutation = useMutation({
+    mutationFn: async (data: PerformResetForm) => {
+      await apiRequest("POST", "/api/auth/reset-password", data);
+    },
+    onSuccess: () => {
+      toast({ title: "Password updated", description: "You can now log in with your new password." });
+      setShowReset(false);
+      performResetForm.reset();
+    },
+    onError: (error) => {
+      toast({
+        title: "Reset failed",
+        description: error.message || "Could not reset password",
         variant: "destructive",
       });
     },
@@ -186,8 +247,83 @@ export default function Auth() {
                       >
                         {loginMutation.isPending ? "Signing in..." : "Sign In"}
                       </Button>
+                      <div className="text-sm text-center">
+                        <button
+                          type="button"
+                          className="text-accent-purple hover:underline"
+                          onClick={() => setShowReset((v) => !v)}
+                        >
+                          {showReset ? "Hide password reset" : "Forgot password?"}
+                        </button>
+                      </div>
                     </form>
                   </Form>
+
+                  {showReset && (
+                    <div className="mt-6 space-y-6">
+                      <div>
+                        <h3 className="text-sm font-semibold mb-2">Request reset link</h3>
+                        <Form {...requestResetForm}>
+                          <form onSubmit={requestResetForm.handleSubmit((data) => requestResetMutation.mutate(data))} className="space-y-3">
+                            <FormField
+                              control={requestResetForm.control}
+                              name="username"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Username</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="Your username" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <Button type="submit" className="w-full" disabled={requestResetMutation.isPending}>
+                              {requestResetMutation.isPending ? "Sending..." : "Send reset link"}
+                            </Button>
+                          </form>
+                        </Form>
+                        <p className="text-xs text-gray-500 mt-2">During development, the token is shown in a toast.</p>
+                      </div>
+
+                      <div>
+                        <h3 className="text-sm font-semibold mb-2">Reset password</h3>
+                        <Form {...performResetForm}>
+                          <form onSubmit={performResetForm.handleSubmit((data) => performResetMutation.mutate(data))} className="space-y-3">
+                            <FormField
+                              control={performResetForm.control}
+                              name="token"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Token</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="Paste token" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={performResetForm.control}
+                              name="newPassword"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>New password</FormLabel>
+                                  <FormControl>
+                                    <Input type="password" placeholder="New password" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <Button type="submit" className="w-full" disabled={performResetMutation.isPending}>
+                              {performResetMutation.isPending ? "Updating..." : "Update password"}
+                            </Button>
+                          </form>
+                        </Form>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

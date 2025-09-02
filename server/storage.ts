@@ -14,6 +14,8 @@ import {
   type PredictionWithDetails,
   type RegisterData,
   type UserProfile,
+  passwordResetTokens,
+  type PasswordResetToken,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, isNull } from "drizzle-orm";
@@ -43,6 +45,11 @@ export interface IStorage {
   updateUserStats(userId: string): Promise<void>;
   getLeaderboard(limit?: number): Promise<User[]>;
   getUserProfile(userId: string): Promise<User | undefined>;
+
+  // Password reset
+  createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markPasswordResetTokenUsed(token: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -321,6 +328,27 @@ export class DatabaseStorage implements IStorage {
       predictions: userPredictions,
       votes: votesWithPrediction,
     };
+  }
+
+  // Password reset token operations
+  async createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<PasswordResetToken> {
+    const [row] = await db
+      .insert(passwordResetTokens)
+      .values({ token, userId, expiresAt })
+      .returning();
+    return row;
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [row] = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    return row;
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    await db
+      .update(passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(passwordResetTokens.token, token));
   }
 }
 

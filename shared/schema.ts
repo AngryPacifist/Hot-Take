@@ -78,6 +78,15 @@ export const votes = pgTable("votes", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Password reset tokens
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  token: varchar("token").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   predictions: many(predictions),
@@ -159,6 +168,16 @@ export const insertVoteSchema = createInsertSchema(votes).omit({
   createdAt: true,
 });
 
+// Password reset schemas
+export const createPasswordResetRequestSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+});
+
+export const passwordResetSchema = z.object({
+  token: z.string().min(1),
+  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -174,6 +193,7 @@ export type InsertPrediction = z.infer<typeof insertPredictionSchema>;
 
 export type Vote = typeof votes.$inferSelect;
 export type InsertVote = z.infer<typeof insertVoteSchema>;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 
 // Extended types with relations
 export type PredictionWithDetails = Prediction & {

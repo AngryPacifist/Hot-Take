@@ -3,8 +3,9 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { isAuthenticated, hashPassword, comparePassword, isBcryptHash, loginUser, logoutUser } from "./auth";
-import { insertPredictionSchema, insertVoteSchema, loginSchema, registerSchema } from "@shared/schema";
+import { insertPredictionSchema, insertVoteSchema, loginSchema, registerSchema, createPasswordResetRequestSchema, passwordResetSchema } from "@shared/schema";
 import { z } from "zod";
+import crypto from "crypto";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize default categories
@@ -111,6 +112,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error logging out user:", error);
       res.status(500).json({ message: "Failed to logout" });
+    }
+  });
+
+  // Password reset: request
+  app.post('/api/auth/request-password-reset', async (req, res) => {
+    try {
+      const { username } = createPasswordResetRequestSchema.parse(req.body);
+      const user = await storage.getUserByUsername(username);
+      // Always respond 200 to avoid user enumeration
+      if (!user) {
+        return res.json({ message: "If that user exists, a reset link has been issued" });
+      }
+
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 30); // 30 minutes
+      await storage.createPasswordResetToken(user.id, token, expiresAt);
+
+      // For now, return token in response (dev). In production, email/DM would be sent.
+      res.json({ message: "Reset link created", token, expiresAt });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error requesting password reset:", error);
+      res.status(500).json({ message: "Failed to request password reset" });
+    }
+  });
+
+  // Password reset: perform
+  app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+      const { token, newPassword } = passwordResetSchema.parse(req.body);
+      const tokenRow = await storage.getPasswordResetToken(token);
+      if (!tokenRow || (tokenRow.usedAt != null) || tokenRow.expiresAt.getTime() < Date.now()) {
+        return res.status(400).json({ message: "Invalid or expired token" });
+      }
+
+      const newHash = await hashPassword(newPassword);
+      await storage.updateUserPassword(tokenRow.userId, newHash);
+      await storage.markPasswordResetTokenUsed(token);
+
+      res.json({ message: "Password updated" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
     }
   });
 
