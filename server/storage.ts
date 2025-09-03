@@ -18,7 +18,7 @@ import {
   type PasswordResetToken,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, isNull } from "drizzle-orm";
+import { eq, desc, sql, and, isNull, asc } from "drizzle-orm";
 
 export interface IStorage {
   // User operations 
