@@ -3,9 +3,11 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { isAuthenticated, hashPassword, comparePassword, isBcryptHash, loginUser, logoutUser } from "./auth";
-import { insertPredictionSchema, insertVoteSchema, loginSchema, registerSchema, createPasswordResetRequestSchema, passwordResetSchema } from "@shared/schema";
+import { insertPredictionSchema, insertVoteSchema, loginSchema, registerSchema, createPasswordResetRequestSchema, passwordResetSchema, users, votes } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
+import { db } from "./db";
+import { eq, sql } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize default categories
@@ -34,7 +36,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if username already exists
       const existingUser = await storage.getUserByUsername(validatedData.username);
       if (existingUser) {
-        return res.status(400).json({ message: "Username already exists" });
+        // Return a generic error to prevent user enumeration
+        return res.status(409).json({ message: "A user with that name already exists" });
       }
 
       // Hash password
@@ -271,22 +274,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = (req.session as any).userId;
       const validatedData = insertVoteSchema.parse(req.body);
-      
-      // Check if user already voted on this prediction
-      const existingVote = await storage.getUserVote(userId, validatedData.predictionId);
-      if (existingVote) {
-        return res.status(400).json({ message: "You have already voted on this prediction" });
-      }
 
-      // Check if user has enough points
-      const user = await storage.getUser(userId);
-      if (!user || user.points < validatedData.pointsStaked) {
-        return res.status(400).json({ message: "Insufficient points" });
-      }
-      
-      const vote = await storage.createVote({
-        ...validatedData,
-        userId,
+      const vote = await db.transaction(async (tx) => {
+        // Check if user already voted
+        const existingVote = await storage.getUserVote(userId, validatedData.predictionId);
+        if (existingVote) {
+          throw new Error("You have already voted on this prediction");
+        }
+
+        // Get user and check points
+        const [user] = await tx.select().from(users).where(eq(users.id, userId));
+        if (!user || user.points < validatedData.pointsStaked) {
+          throw new Error("Insufficient points");
+        }
+
+        // Create vote
+        const [newVote] = await tx.insert(votes).values({ ...validatedData, userId }).returning();
+
+        // Update user points
+        await tx.update(users).set({
+          points: sql`${users.points} - ${validatedData.pointsStaked}`
+        }).where(eq(users.id, userId));
+
+        // Update prediction stats
+        await storage.updatePredictionStats(validatedData.predictionId);
+
+        const updatedPrediction = await storage.getPrediction(validatedData.predictionId);
+
+        return { newVote, updatedPrediction };
       });
       
       // Broadcast vote update via WebSocket
@@ -294,7 +309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const message = JSON.stringify({
           type: 'vote_update',
           predictionId: validatedData.predictionId,
-          vote: vote,
+          prediction: vote.updatedPrediction,
         });
         
         wss.clients.forEach((client) => {
@@ -305,10 +320,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.status(201).json(vote);
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid vote data", errors: error.errors });
       }
+
+      const messages = ["Insufficient points", "You have already voted on this prediction"];
+      if (messages.includes(error.message)) {
+        return res.status(400).json({ message: error.message });
+      }
+
       console.error("Error creating vote:", error);
       res.status(500).json({ message: "Failed to create vote" });
     }
@@ -318,7 +339,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/leaderboard", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
-      const users = await storage.getLeaderboard(limit);
+      const offset = parseInt(req.query.offset as string) || 0;
+      const users = await storage.getLeaderboard(limit, offset);
       res.json(users);
     } catch (error) {
       console.error("Error fetching leaderboard:", error);

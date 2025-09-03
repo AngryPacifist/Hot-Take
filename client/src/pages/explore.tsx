@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import TopNavigation from "@/components/top-navigation";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import CategoryFilters from "@/components/category-filters";
 import PredictionCard from "@/components/prediction-card";
 import BottomNavigation from "@/components/bottom-navigation";
@@ -42,6 +43,26 @@ export default function Explore() {
   });
 
   const allPredictions = data?.pages.flat() || [];
+
+  const queryClient = useQueryClient();
+  const { subscribe } = useWebSocket();
+
+  useEffect(() => {
+    const unsubscribe = subscribe("vote_update", (data: { prediction: PredictionWithDetails }) => {
+      queryClient.setQueryData(["/api/predictions", selectedCategory, sortBy, searchQuery], (oldData: any) => {
+        if (!oldData) return oldData;
+
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: PredictionWithDetails[]) =>
+            page.map((p) => (p.id === data.prediction.id ? data.prediction : p))
+          ),
+        };
+      });
+    });
+
+    return () => unsubscribe();
+  }, [queryClient, selectedCategory, sortBy, searchQuery, subscribe]);
 
   return (
     <div className="max-w-md mx-auto bg-white min-h-screen">

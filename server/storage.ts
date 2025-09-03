@@ -43,7 +43,7 @@ export interface IStorage {
   
   // User stats
   updateUserStats(userId: string): Promise<void>;
-  getLeaderboard(limit?: number): Promise<User[]>;
+  getLeaderboard(limit?: number, offset?: number): Promise<User[]>;
   getUserProfile(userId: string): Promise<User | undefined>;
 
   // Password reset
@@ -261,12 +261,13 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getLeaderboard(limit = 50): Promise<User[]> {
+  async getLeaderboard(limit = 50, offset = 0): Promise<User[]> {
     return await db
       .select()
       .from(users)
       .orderBy(desc(users.points), desc(users.accuracyScore))
-      .limit(limit);
+      .limit(limit)
+      .offset(offset);
   }
 
   async getUserProfile(userId: string): Promise<UserProfile | undefined> {
