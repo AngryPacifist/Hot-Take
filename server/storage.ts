@@ -93,7 +93,8 @@ export class DatabaseStorage implements IStorage {
   async getPredictions(limit = 20, offset = 0, categoryId?: string, sortBy: "recent" | "trending" | "ending_soon" = "trending", searchQuery?: string): Promise<PredictionWithDetails[]> {
     const whereClauses = and(
       categoryId ? eq(predictions.categoryId, categoryId) : undefined,
-      searchQuery ? sql`(${predictions.title} ILIKE ${'%' + searchQuery + '%'} OR ${predictions.description} ILIKE ${'%' + searchQuery + '%'})` : undefined
+      searchQuery ? sql`(${predictions.title} ILIKE ${'%' + searchQuery + '%'} OR ${predictions.description} ILIKE ${'%' + searchQuery + '%'})` : undefined,
+      sortBy === "ending_soon" ? eq(predictions.resolved, false) : undefined
     );
 
     let query = db
