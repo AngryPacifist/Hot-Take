@@ -21,6 +21,7 @@ export default function TopNavigation() {
         description: "You have been logged out successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      window.location.href = "/auth";
     },
     onError: (error) => {
       toast({

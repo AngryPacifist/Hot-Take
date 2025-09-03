@@ -18,7 +18,7 @@ import {
   type PasswordResetToken,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, isNull } from "drizzle-orm";
+import { eq, desc, sql, and, isNull, asc } from "drizzle-orm";
 
 export interface IStorage {
   // User operations 
@@ -113,7 +113,7 @@ export class DatabaseStorage implements IStorage {
     } else if (sortBy === "trending") {
       query = query.orderBy(sql`("total_stakes" + "yes_votes" + "no_votes") DESC`);
     } else if (sortBy === "ending_soon") {
-      query = query.orderBy(predictions.resolutionDate);
+      query = query.orderBy(asc(predictions.resolutionDate));
     } else {
       query = query.orderBy(desc(predictions.createdAt));
     }
