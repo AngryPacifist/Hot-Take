@@ -1,19 +1,68 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import type { User as UserType } from "@shared/schema";
 import TopNavigation from "@/components/top-navigation";
 import BottomNavigation from "@/components/bottom-navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { User, Award, TrendingUp, Target } from "lucide-react";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+
+const profileFormSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters").max(20, "Username must be less than 20 characters").optional().or(z.literal("")),
+  profileImageUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
+});
+
+type ProfileForm = z.infer<typeof profileFormSchema>;
 
 export default function Profile() {
   const { user, isLoading } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   const { data: userProfile } = useQuery<UserType>({
     queryKey: ["/api/users", user?.id],
     enabled: !!user?.id,
+  });
+
+  const form = useForm<ProfileForm>({
+    resolver: zodResolver(profileFormSchema),
+    values: {
+      username: userProfile?.username || "",
+      profileImageUrl: userProfile?.profileImageUrl || "",
+    },
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: ProfileForm) => {
+      const payload = Object.fromEntries(
+        Object.entries(data).filter(([, value]) => value !== "")
+      );
+      if (Object.keys(payload).length === 0) return;
+      await apiRequest("PUT", "/api/auth/user", payload);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Profile updated!",
+        description: "Your profile has been updated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update profile",
+        variant: "destructive",
+      });
+    },
   });
 
   if (isLoading) {
@@ -148,10 +197,53 @@ export default function Profile() {
           </CardContent>
         </Card>
 
-        {/* Settings */}
+        {/* Profile Settings */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Profile Settings</CardTitle>
+            <CardDescription>Update your username and profile picture.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit((data) => updateProfileMutation.mutate(data))} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+                      <FormControl>
+                        <Input placeholder="New username" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="profileImageUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Profile Picture URL</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Image URL" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full" disabled={updateProfileMutation.isPending}>
+                  {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+
+        {/* General Settings */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Settings</CardTitle>
+            <CardTitle className="text-lg">General Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <Button 
