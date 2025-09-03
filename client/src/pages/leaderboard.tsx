@@ -1,15 +1,37 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import TopNavigation from "@/components/top-navigation";
 import BottomNavigation from "@/components/bottom-navigation";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Medal, Award, User } from "lucide-react";
 import type { User as UserType } from "@shared/schema";
 
+const LEADERBOARD_PAGE_SIZE = 20;
+
 export default function Leaderboard() {
-  const { data: leaderboard, isLoading } = useQuery<UserType[]>({
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+  } = useInfiniteQuery<UserType[]>({
     queryKey: ["/api/leaderboard"],
+    queryFn: ({ pageParam = 0 }) => {
+      const params = new URLSearchParams({
+        limit: String(LEADERBOARD_PAGE_SIZE),
+        offset: String(pageParam * LEADERBOARD_PAGE_SIZE),
+      });
+      return fetch(`/api/leaderboard?${params}`).then((res) => res.json());
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.length === LEADERBOARD_PAGE_SIZE ? allPages.length : undefined;
+    },
+    initialPageParam: 0,
   });
+
+  const leaderboard = data?.pages.flat() || [];
 
   if (isLoading) {
     return (
@@ -208,6 +230,19 @@ export default function Leaderboard() {
             );
           })}
         </div>
+
+        {hasNextPage && (
+          <div className="mt-6">
+            <Button
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              variant="outline"
+              className="w-full"
+            >
+              {isFetchingNextPage ? "Loading more..." : "Load More"}
+            </Button>
+          </div>
+        )}
 
         {leaderboard?.length === 0 && (
           <div className="text-center py-20">
