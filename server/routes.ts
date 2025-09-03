@@ -338,9 +338,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update prediction stats
         await storage.updatePredictionStats(validatedData.predictionId);
 
-        // Update user stats
-        await storage.updateUserStats(userId);
-
         const updatedPrediction = await storage.getPrediction(validatedData.predictionId);
 
         return { newVote, updatedPrediction };
