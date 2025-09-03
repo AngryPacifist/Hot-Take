@@ -44,6 +44,7 @@ const createPredictionSchema = z.object({
   description: z.string().max(500, "Description must be less than 500 characters").optional(),
   categoryId: z.string().min(1, "Please select a category"),
   resolutionDate: z.string().min(1, "Please select a resolution date"),
+  resolutionTime: z.string().min(1, "Please select a resolution time"),
 });
 
 type CreatePredictionForm = z.infer<typeof createPredictionSchema>;
@@ -64,15 +65,16 @@ export default function CreatePredictionModal({ open, onClose, onSuccess }: Crea
       description: "",
       categoryId: "",
       resolutionDate: "",
+      resolutionTime: "23:59",
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: CreatePredictionForm) => {
-      const resolutionDate = new Date(data.resolutionDate);
+      const resolutionDateTime = new Date(`${data.resolutionDate}T${data.resolutionTime}`);
       await apiRequest("POST", "/api/predictions", {
         ...data,
-        resolutionDate: resolutionDate.toISOString(),
+        resolutionDate: resolutionDateTime.toISOString(),
       });
     },
     onSuccess: () => {
@@ -199,25 +201,45 @@ export default function CreatePredictionModal({ open, onClose, onSuccess }: Crea
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="resolutionDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Resolution Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      min={minDate}
-                      className="focus:ring-2 focus:ring-accent-purple focus:border-transparent"
-                      data-testid="input-resolution-date"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="resolutionDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Resolution Date</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        min={minDate}
+                        className="focus:ring-2 focus:ring-accent-purple focus:border-transparent"
+                        data-testid="input-resolution-date"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="resolutionTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Resolution Time</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="time"
+                        className="focus:ring-2 focus:ring-accent-purple focus:border-transparent"
+                        data-testid="input-resolution-time"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <div className="flex space-x-3">
               <Button

@@ -36,6 +36,7 @@ export interface IStorage {
   getPrediction(id: string): Promise<PredictionWithDetails | undefined>;
   createPrediction(prediction: InsertPrediction & { userId: string }): Promise<Prediction>;
   updatePredictionStats(predictionId: string): Promise<void>;
+  resolvePrediction(predictionId: string, userId: string, resolvedValue: boolean): Promise<Prediction>;
   
   // Vote operations
   getUserVote(userId: string, predictionId: string): Promise<Vote | undefined>;
@@ -210,6 +211,73 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async resolvePrediction(predictionId: string, userId: string, resolvedValue: boolean): Promise<Prediction> {
+    // @ts-ignore
+    return await db.transaction(async (tx) => {
+      // 1. Fetch prediction and verify
+      const [prediction] = await tx.select().from(predictions).where(eq(predictions.id, predictionId));
+      if (!prediction) {
+        throw new Error("Prediction not found");
+      }
+      if (prediction.userId !== userId) {
+        throw new Error("You are not authorized to resolve this prediction");
+      }
+      if (prediction.resolved) {
+        throw new Error("Prediction has already been resolved");
+      }
+      if (new Date(prediction.resolutionDate) > new Date()) {
+        throw new Error("Resolution time has not passed yet");
+      }
+
+      // 2. Update prediction
+      const [updatedPrediction] = await tx
+        .update(predictions)
+        .set({
+          resolved: true,
+          resolvedValue: resolvedValue,
+          updatedAt: new Date(),
+        })
+        .where(eq(predictions.id, predictionId))
+        .returning();
+
+      // 3. Get all votes
+      const allVotes: Vote[] = await tx.select().from(votes).where(eq(votes.predictionId, predictionId));
+
+      // 4. Calculate point distribution
+      const winningStance = resolvedValue;
+      const winners = allVotes.filter((v: Vote) => v.stance === winningStance);
+      const losers = allVotes.filter((v: Vote) => v.stance !== winningStance);
+
+      const totalLoserPoints = losers.reduce((sum: number, v: Vote) => sum + v.pointsStaked, 0);
+      const totalWinnerPoints = winners.reduce((sum: number, v: Vote) => sum + v.pointsStaked, 0);
+
+      if (winners.length > 0 && totalLoserPoints > 0) {
+        for (const winner of winners) {
+          const proportion = winner.pointsStaked / totalWinnerPoints;
+          const winnings = Math.floor(proportion * totalLoserPoints);
+          await tx
+            .update(users)
+            .set({ points: sql`${users.points} + ${winnings}` })
+            .where(eq(users.id, winner.userId));
+        }
+      }
+
+      // 5. Update user stats (accuracy)
+      for (const vote of allVotes) {
+        const correct = vote.stance === winningStance;
+        await tx
+          .update(users)
+          .set({
+            correctPredictions: sql`${users.correctPredictions} + ${correct ? 1 : 0}`,
+            accuracyScore: sql`((${users.correctPredictions} + ${correct ? 1 : 0}) / ${users.totalPredictions}) * 100`,
+          })
+          .where(eq(users.id, vote.userId));
+      }
+
+      return updatedPrediction;
+    });
+  }
+
   // Vote operations
   async getUserVote(userId: string, predictionId: string): Promise<Vote | undefined> {
     const [vote] = await db
@@ -255,6 +323,7 @@ export class DatabaseStorage implements IStorage {
         .update(users)
         .set({
           totalPredictions: stats.totalPredictions || 0,
+          totalVotes: stats.totalVotes || 0,
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId));
