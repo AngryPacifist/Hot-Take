@@ -178,6 +178,11 @@ export const passwordResetSchema = z.object({
   newPassword: z.string().min(6, "Password must be at least 6 characters"),
 });
 
+export const updateUserProfileSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters").max(20, "Username must be less than 20 characters").optional(),
+  profileImageUrl: z.string().url("Invalid URL").optional(),
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;

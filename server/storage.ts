@@ -26,6 +26,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: RegisterData & { password: string }): Promise<User>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
+  updateUserProfile(userId: string, data: { username?: string; profileImageUrl?: string }): Promise<User>;
   
   // Category operations
   getCategories(): Promise<Category[]>;
@@ -80,6 +81,15 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
   }
 
+  async updateUserProfile(userId: string, data: { username?: string; profileImageUrl?: string }): Promise<User> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updatedUser;
+  }
+
   // Category operations
   async getCategories(): Promise<Category[]> {
     return await db.select().from(categories);
@@ -111,11 +121,11 @@ export class DatabaseStorage implements IStorage {
     if (sortBy === "recent") {
       query = query.orderBy(desc(predictions.createdAt));
     } else if (sortBy === "trending") {
-      query = query.orderBy(sql`("total_stakes" + "yes_votes" + "no_votes") DESC`);
+      query = query.orderBy(desc(predictions.totalPoints));
     } else if (sortBy === "ending_soon") {
-      query = query.orderBy(predictions.resolutionDate);
+      query = query.orderBy(asc(predictions.resolutionDate));
     } else {
-      query = query.orderBy(desc(predictions.createdAt));
+      query = query.orderBy(desc(predictions.totalPoints));
     }
 
     const results = await query.limit(limit).offset(offset);
@@ -251,13 +261,17 @@ export class DatabaseStorage implements IStorage {
       const totalLoserPoints = losers.reduce((sum: number, v: Vote) => sum + v.pointsStaked, 0);
       const totalWinnerPoints = winners.reduce((sum: number, v: Vote) => sum + v.pointsStaked, 0);
 
-      if (winners.length > 0 && totalLoserPoints > 0) {
+      if (winners.length > 0) {
         for (const winner of winners) {
-          const proportion = winner.pointsStaked / totalWinnerPoints;
-          const winnings = Math.floor(proportion * totalLoserPoints);
+          let winnings = 0;
+          if (totalLoserPoints > 0 && totalWinnerPoints > 0) {
+            const proportion = winner.pointsStaked / totalWinnerPoints;
+            winnings = Math.floor(proportion * totalLoserPoints);
+          }
+          // Return stake and add winnings
           await tx
             .update(users)
-            .set({ points: sql`${users.points} + ${winnings}` })
+            .set({ points: sql`${users.points} + ${winner.pointsStaked + winnings}` })
             .where(eq(users.id, winner.userId));
         }
       }
@@ -268,8 +282,9 @@ export class DatabaseStorage implements IStorage {
         await tx
           .update(users)
           .set({
+            totalPredictions: sql`${users.totalPredictions} + 1`,
             correctPredictions: sql`${users.correctPredictions} + ${correct ? 1 : 0}`,
-            accuracyScore: sql`((${users.correctPredictions} + ${correct ? 1 : 0}) / ${users.totalPredictions}) * 100`,
+            accuracyScore: sql`((${users.correctPredictions} + ${correct ? 1 : 0}) / (${users.totalPredictions} + 1)) * 100`,
           })
           .where(eq(users.id, vote.userId));
       }

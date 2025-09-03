@@ -1,6 +1,7 @@
 import { Bell, Settings, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { Link } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -42,7 +43,7 @@ export default function TopNavigation() {
   return (
     <header className="bg-white border-b border-light-border sticky top-0 z-50 px-4 py-3" data-testid="header-navigation">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+        <Link href="/profile" className="flex items-center space-x-3">
           {typedUser.profileImageUrl ? (
             <img 
               src={typedUser.profileImageUrl} 
@@ -69,7 +70,7 @@ export default function TopNavigation() {
               </span>
             </div>
           </div>
-        </div>
+        </Link>
         
         <div className="flex items-center space-x-3">
           <Button 
