@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { ThumbsUp, ThumbsDown, Share, Bookmark, MoreHorizontal, User } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import ResolvePredictionModal from "./resolve-prediction-modal";
+import { ThumbsUp, ThumbsDown, Share, Bookmark, MoreHorizontal, User, CheckCircle } from "lucide-react";
 import type { PredictionWithDetails } from "@shared/schema";
 
 interface PredictionCardProps {
@@ -15,8 +17,10 @@ interface PredictionCardProps {
 
 export default function PredictionCard({ prediction }: PredictionCardProps) {
   const [stakeAmount, setStakeAmount] = useState(10);
+  const [isResolveModalOpen, setResolveModalOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
 
   const voteMutation = useMutation({
     mutationFn: async ({ stance, pointsStaked }: { stance: boolean; pointsStaked: number }) => {
@@ -245,15 +249,40 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
               <span className="text-sm">Save</span>
             </Button>
           </div>
-          <Button 
-            size="sm"
-            className="bg-accent-purple hover:bg-accent-purple/90 text-white px-4 py-2 text-sm"
-            data-testid={`button-details-${prediction.id}`}
-          >
-            Details
-          </Button>
+
+          {prediction.resolved ? (
+            <Badge className="bg-success-green text-white">
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Resolved: {prediction.resolvedValue ? 'YES' : 'NO'}
+            </Badge>
+          ) : currentUser?.id === prediction.userId && new Date(prediction.resolutionDate) < new Date() ? (
+            <Button
+              size="sm"
+              className="bg-accent-purple hover:bg-accent-purple/90 text-white px-4 py-2 text-sm"
+              onClick={() => setResolveModalOpen(true)}
+              data-testid={`button-resolve-${prediction.id}`}
+            >
+              Resolve
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="bg-gray-400 text-white px-4 py-2 text-sm cursor-not-allowed"
+              data-testid={`button-details-${prediction.id}`}
+              disabled
+            >
+              Awaiting Resolution
+            </Button>
+          )}
         </div>
       </CardContent>
+      {isResolveModalOpen && (
+        <ResolvePredictionModal
+          prediction={prediction}
+          open={isResolveModalOpen}
+          onClose={() => setResolveModalOpen(false)}
+        />
+      )}
     </Card>
   );
 }

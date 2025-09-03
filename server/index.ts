@@ -6,6 +6,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { registerRoutes } from "./routes";
+import { seedDatabase } from "./seed";
 import { setupVite, serveStatic, log } from "./vite";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
@@ -80,6 +81,9 @@ app.use((req, res, next) => {
   } catch (e) {
     log(`failed ensuring password_reset_tokens table: ${(e as any)?.message || e}`, "db");
   }
+
+  // Seed the database with initial data
+  await seedDatabase();
 
   const server = await registerRoutes(app);
 

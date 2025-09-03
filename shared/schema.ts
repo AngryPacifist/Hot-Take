@@ -37,6 +37,7 @@ export const users = pgTable("users", {
   points: integer("points").default(1000).notNull(),
   accuracyScore: decimal("accuracy_score", { precision: 5, scale: 2 }).default('0.00'),
   totalPredictions: integer("total_predictions").default(0).notNull(),
+  totalVotes: integer("total_votes").default(0).notNull(),
   correctPredictions: integer("correct_predictions").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

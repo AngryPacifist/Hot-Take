@@ -6,28 +6,12 @@ import { isAuthenticated, hashPassword, comparePassword, isBcryptHash, loginUser
 import { insertPredictionSchema, insertVoteSchema, loginSchema, registerSchema, createPasswordResetRequestSchema, passwordResetSchema, users, votes } from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
+import type { AuthenticatedRequest } from "./types";
 import { db } from "./db";
 import { eq, sql } from "drizzle-orm";
+import type { NodePgTransaction } from "drizzle-orm/node-postgres";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Initialize default categories
-  const defaultCategories = [
-    { name: "Tech", emoji: "🚀", color: "bg-blue-100 text-blue-800" },
-    { name: "Sports", emoji: "⚽", color: "bg-green-100 text-green-800" },
-    { name: "Crypto", emoji: "💰", color: "bg-yellow-100 text-yellow-800" },
-    { name: "Memes", emoji: "😂", color: "bg-pink-100 text-pink-800" },
-    { name: "Food", emoji: "🍕", color: "bg-orange-100 text-orange-800" },
-  ];
-
-  // Ensure default categories exist
-  for (const category of defaultCategories) {
-    try {
-      await storage.createCategory(category);
-    } catch (error) {
-      // Category might already exist, ignore error
-    }
-  }
-
   // Auth routes
   app.post('/api/auth/register', async (req, res) => {
     try {
@@ -166,9 +150,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = (req.session as any).userId;
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -195,19 +182,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Prediction routes
+  const getPredictionsSchema = z.object({
+    limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+    offset: z.coerce.number().int().min(0).optional().default(0),
+    categoryId: z.string().optional(),
+    sortBy: z.enum(["recent", "trending", "ending_soon"]).optional().default("trending"),
+    searchQuery: z.string().optional(),
+  });
+
   app.get("/api/predictions", async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 20;
-      const offset = parseInt(req.query.offset as string) || 0;
-      const categoryId = req.query.categoryId as string;
-      const sortBy = req.query.sortBy as "recent" | "trending" | "ending_soon";
-      const searchQuery = req.query.searchQuery as string;
+      const { limit, offset, categoryId, sortBy, searchQuery } = getPredictionsSchema.parse(req.query);
 
       const predictions = await storage.getPredictions(limit, offset, categoryId, sortBy, searchQuery);
       
       // If user is authenticated, include their votes
-      if (req.session && (req.session as any).userId) {
-        const userId = (req.session as any).userId;
+      const authReq = req as AuthenticatedRequest;
+      if (authReq.session && authReq.session.userId) {
+        const userId = authReq.session.userId;
         for (const prediction of predictions) {
           const userVote = await storage.getUserVote(userId, prediction.id);
           if (userVote) {
@@ -218,6 +210,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(predictions);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid query parameters", errors: error.errors });
+      }
       console.error("Error fetching predictions:", error);
       res.status(500).json({ message: "Failed to fetch predictions" });
     }
@@ -231,8 +226,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // If user is authenticated, include their vote
-      if (req.session && (req.session as any).userId) {
-        const userId = (req.session as any).userId;
+      const authReq = req as AuthenticatedRequest;
+      if (authReq.session && authReq.session.userId) {
+        const userId = authReq.session.userId;
         const userVote = await storage.getUserVote(userId, prediction.id);
         if (userVote) {
           (prediction as any).userVote = userVote;
@@ -246,9 +242,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/predictions", isAuthenticated, async (req: any, res) => {
+  app.post("/api/predictions", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = (req.session as any).userId;
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const validatedData = insertPredictionSchema.parse(req.body);
       
       const prediction = await storage.createPrediction({
@@ -269,12 +268,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Vote routes
-  app.post("/api/votes", isAuthenticated, async (req: any, res) => {
+  const resolvePredictionSchema = z.object({
+    resolvedValue: z.boolean(),
+  });
+
+  app.post("/api/predictions/:id/resolve", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = (req.session as any).userId;
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const predictionId = req.params.id;
+      const { resolvedValue } = resolvePredictionSchema.parse(req.body);
+
+      const updatedPrediction = await storage.resolvePrediction(predictionId, userId, resolvedValue);
+
+      res.json(updatedPrediction);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+
+      const messages = [
+        "Prediction not found",
+        "You are not authorized to resolve this prediction",
+        "Prediction has already been resolved",
+        "Resolution time has not passed yet"
+      ];
+      if (messages.includes(error.message)) {
+        return res.status(400).json({ message: error.message });
+      }
+
+      console.error("Error resolving prediction:", error);
+      res.status(500).json({ message: "Failed to resolve prediction" });
+    }
+  });
+
+  // Vote routes
+  app.post("/api/votes", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const validatedData = insertVoteSchema.parse(req.body);
 
+      // @ts-ignore
       const vote = await db.transaction(async (tx) => {
         // Check if user already voted
         const existingVote = await storage.getUserVote(userId, validatedData.predictionId);
@@ -298,6 +337,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Update prediction stats
         await storage.updatePredictionStats(validatedData.predictionId);
+
+        // Update user stats
+        await storage.updateUserStats(userId);
 
         const updatedPrediction = await storage.getPrediction(validatedData.predictionId);
 
@@ -336,13 +378,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User routes
+  const getLeaderboardSchema = z.object({
+    limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+    offset: z.coerce.number().int().min(0).optional().default(0),
+  });
+
   app.get("/api/leaderboard", async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const { limit, offset } = getLeaderboardSchema.parse(req.query);
       const users = await storage.getLeaderboard(limit, offset);
       res.json(users);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid query parameters", errors: error.errors });
+      }
       console.error("Error fetching leaderboard:", error);
       res.status(500).json({ message: "Failed to fetch leaderboard" });
     }

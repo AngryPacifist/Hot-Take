@@ -18,10 +18,11 @@ export default function Leaderboard() {
     isLoading,
   } = useInfiniteQuery<UserType[]>({
     queryKey: ["/api/leaderboard"],
-    queryFn: ({ pageParam = 0 }) => {
+    queryFn: ({ pageParam = 0 }: { pageParam: unknown }) => {
+      const numericPageParam = (pageParam as number) || 0;
       const params = new URLSearchParams({
         limit: String(LEADERBOARD_PAGE_SIZE),
-        offset: String(pageParam * LEADERBOARD_PAGE_SIZE),
+        offset: String(numericPageParam * LEADERBOARD_PAGE_SIZE),
       });
       return fetch(`/api/leaderboard?${params}`).then((res) => res.json());
     },
