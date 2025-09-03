@@ -275,6 +275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.session as any).userId;
       const validatedData = insertVoteSchema.parse(req.body);
 
+      // @ts-ignore
       const vote = await db.transaction(async (tx) => {
         // Check if user already voted
         const existingVote = await storage.getUserVote(userId, validatedData.predictionId);
@@ -299,7 +300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update prediction stats
         await storage.updatePredictionStats(validatedData.predictionId);
 
-        const updatedPrediction = await storage.getPrediction(validatedData.predictionId);
+        const updatedPrediction = await storage.getPrediction(validatedData.predictionId, userId);
 
         return { newVote, updatedPrediction };
       });

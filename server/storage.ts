@@ -33,7 +33,7 @@ export interface IStorage {
   
   // Prediction operations
   getPredictions(limit?: number, offset?: number, categoryId?: string, sortBy?: "recent" | "trending" | "ending_soon", searchQuery?: string): Promise<PredictionWithDetails[]>;
-  getPrediction(id: string): Promise<PredictionWithDetails | undefined>;
+  getPrediction(id: string, userId?: string): Promise<PredictionWithDetails | undefined>;
   createPrediction(prediction: InsertPrediction & { userId: string }): Promise<Prediction>;
   updatePredictionStats(predictionId: string): Promise<void>;
   
@@ -142,7 +142,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getPrediction(id: string): Promise<PredictionWithDetails | undefined> {
+  async getPrediction(id: string, userId?: string): Promise<PredictionWithDetails | undefined> {
     const [result] = await db
       .select({
         prediction: predictions,
@@ -155,6 +155,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(predictions.id, id));
 
     if (!result) return undefined;
+
+    let userVote: Vote | undefined;
+    if (userId) {
+      userVote = await this.getUserVote(userId, id);
+    }
 
     const prediction = result.prediction;
     const totalVotes = prediction.yesVotes + prediction.noVotes;
@@ -170,6 +175,7 @@ export class DatabaseStorage implements IStorage {
       ...prediction,
       user: result.user!,
       category: result.category!,
+      userVote,
       yesPercentage,
       noPercentage,
       timeRemaining,
