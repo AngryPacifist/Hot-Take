@@ -323,7 +323,6 @@ export class DatabaseStorage implements IStorage {
         .update(users)
         .set({
           totalPredictions: stats.totalPredictions || 0,
-          totalVotes: stats.totalVotes || 0,
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId));

@@ -120,6 +120,27 @@ export default function Auth() {
     },
   });
 
+const CopyableToken = ({ token }: { token: string }) => {
+  const { toast } = useToast();
+  const handleCopy = () => {
+    navigator.clipboard.writeText(token);
+    toast({
+      title: "Copied!",
+      description: "The token has been copied to your clipboard.",
+    });
+  };
+
+  return (
+    <div className="flex items-center justify-between">
+      <span className="truncate w-full max-w-xs">Token: {token}</span>
+      <Button variant="outline" size="sm" onClick={handleCopy} className="ml-2">
+        Copy
+      </Button>
+    </div>
+  );
+};
+
+// ... inside the Auth component ...
   const requestResetMutation = useMutation({
     mutationFn: async (data: RequestResetForm) => {
       const res = await apiRequest("POST", "/api/auth/request-password-reset", data);
@@ -127,10 +148,17 @@ export default function Auth() {
     },
     onSuccess: (data) => {
       // For development, we show the token in the toast response
-      toast({
-        title: "Password reset link created",
-        description: typeof data?.token === "string" ? `Token: ${data.token}` : "If that account exists, you'll receive a reset link.",
-      });
+      if (typeof data?.token === "string") {
+        toast({
+          title: "Password reset link created",
+          description: <CopyableToken token={data.token} />,
+        });
+      } else {
+        toast({
+          title: "Password reset link created",
+          description: "If that account exists, you'll receive a reset link.",
+        });
+      }
     },
     onError: (error) => {
       toast({
