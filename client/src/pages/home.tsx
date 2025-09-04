@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useState, useEffect, useCallback } from "react";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import TopNavigation from "@/components/top-navigation";
 import CategoryFilters from "@/components/category-filters";
@@ -13,32 +13,51 @@ import type { PredictionWithDetails } from "@shared/schema";
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [predictions, setPredictions] = useState<PredictionWithDetails[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const { subscribe } = useWebSocket();
 
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    refetch,
-  } = useInfiniteQuery({
-    queryKey: ["/api/predictions", selectedCategory],
-    queryFn: ({ pageParam = 0 }: { pageParam: number }) => {
+  const { data: initialPredictions, isLoading, refetch } = useQuery({
+    queryKey: ["/api/predictions"],
+    queryFn: () => {
       const params = new URLSearchParams({
-        limit: "10",
-        offset: (pageParam * 10).toString(),
-        ...(selectedCategory && { categoryId: selectedCategory }),
+        limit: "20",
+        offset: "0",
+        ...(selectedCategory && { categoryId: selectedCategory })
       });
-      return fetch(`/api/predictions?${params}`).then((res) => res.json());
+      return fetch(`/api/predictions?${params}`).then(res => res.json());
     },
-    getNextPageParam: (lastPage: PredictionWithDetails[], allPages: PredictionWithDetails[][]) => {
-      return lastPage.length === 10 ? allPages.length : undefined;
-    },
-    initialPageParam: 0,
+    enabled: true,
   });
 
-  const predictions = data?.pages.flat() || [];
+  const { data: moreData, isLoading: loadingMore } = useQuery({
+    queryKey: ["/api/predictions", "more", offset],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        limit: "20",
+        offset: offset.toString(),
+        ...(selectedCategory && { categoryId: selectedCategory })
+      });
+      return fetch(`/api/predictions?${params}`).then(res => res.json());
+    },
+    enabled: offset > 0,
+  });
+
+  useEffect(() => {
+    if (initialPredictions && Array.isArray(initialPredictions)) {
+      setPredictions(initialPredictions);
+      setOffset(20);
+      setHasMore(initialPredictions.length === 20);
+    }
+  }, [initialPredictions]);
+
+  useEffect(() => {
+    if (moreData && Array.isArray(moreData) && offset > 0) {
+      setPredictions(prev => [...prev, ...moreData]);
+      setHasMore(moreData.length === 20);
+    }
+  }, [moreData, offset]);
 
   useEffect(() => {
     const unsubscribe = subscribe('vote_update', (data: any) => {
@@ -48,9 +67,28 @@ export default function Home() {
     return unsubscribe;
   }, [subscribe, refetch]);
 
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      setOffset(prev => prev + 20);
+    }
+  }, [loadingMore, hasMore]);
+
   const handleCategoryChange = (categoryId: string) => {
     setSelectedCategory(categoryId);
+    setOffset(0);
+    setPredictions([]);
   };
+
+  const handleScroll = useCallback(() => {
+    if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000) {
+      loadMore();
+    }
+  }, [loadMore]);
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
 
   if (isLoading) {
     return (
@@ -72,7 +110,7 @@ export default function Home() {
       />
       
       <div className="pb-20 space-y-4 p-4">
-        {predictions.map((prediction: PredictionWithDetails, index: number) => (
+        {predictions.map((prediction, index) => (
           <PredictionCard 
             key={`${prediction.id}-${index}`} 
             prediction={prediction} 
@@ -80,15 +118,16 @@ export default function Home() {
           />
         ))}
         
-        {hasNextPage && (
-          <Button
-            onClick={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-            variant="outline"
-            className="w-full"
-          >
-            {isFetchingNextPage ? "Loading more..." : "Load More"}
-          </Button>
+        {loadingMore && (
+          <div className="flex justify-center py-8" data-testid="loading-indicator">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-purple"></div>
+          </div>
+        )}
+
+        {!hasMore && predictions.length > 0 && (
+          <div className="text-center py-8 text-gray-500">
+            <p>No more predictions to load</p>
+          </div>
         )}
         
         {predictions.length === 0 && !isLoading && (

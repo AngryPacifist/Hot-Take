@@ -32,7 +32,7 @@ export interface IStorage {
   createCategory(category: InsertCategory): Promise<Category>;
   
   // Prediction operations
-  getPredictions(limit?: number, offset?: number, categoryId?: string, sortBy?: "recent" | "trending" | "ending_soon", searchQuery?: string): Promise<PredictionWithDetails[]>;
+  getPredictions(limit?: number, offset?: number, categoryId?: string, sortBy?: "recent" | "trending" | "ending_soon", searchQuery?: string, userId?: string): Promise<PredictionWithDetails[]>;
   getPrediction(id: string, userId?: string): Promise<PredictionWithDetails | undefined>;
   createPrediction(prediction: InsertPrediction & { userId: string }): Promise<Prediction>;
   updatePredictionStats(predictionId: string): Promise<void>;
@@ -90,7 +90,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Prediction operations
-  async getPredictions(limit = 20, offset = 0, categoryId?: string, sortBy: "recent" | "trending" | "ending_soon" = "trending", searchQuery?: string): Promise<PredictionWithDetails[]> {
+  async getPredictions(limit = 20, offset = 0, categoryId?: string, sortBy: "recent" | "trending" | "ending_soon" = "trending", searchQuery?: string, userId?: string): Promise<PredictionWithDetails[]> {
     const whereClauses = and(
       categoryId ? eq(predictions.categoryId, categoryId) : undefined,
       searchQuery ? sql`(${predictions.title} ILIKE ${'%' + searchQuery + '%'} OR ${predictions.description} ILIKE ${'%' + searchQuery + '%'})` : undefined,
@@ -111,17 +111,21 @@ export class DatabaseStorage implements IStorage {
     if (sortBy === "recent") {
       query = query.orderBy(desc(predictions.createdAt));
     } else if (sortBy === "trending") {
-      query = query.orderBy(sql`("total_stakes" + "yes_votes" + "no_votes") DESC`);
+      query = query.orderBy(desc(predictions.totalPoints));
     } else if (sortBy === "ending_soon") {
       query = query.orderBy(asc(predictions.resolutionDate));
     } else {
-      query = query.orderBy(desc(predictions.createdAt));
+      query = query.orderBy(desc(predictions.totalPoints));
     }
 
     const results = await query.limit(limit).offset(offset);
     
-    return results.map((result: { prediction: Prediction, user: User, category: Category }) => {
+    const predictionsWithDetails = await Promise.all(results.map(async (result: { prediction: Prediction, user: User, category: Category }) => {
       const prediction = result.prediction;
+      let userVote: Vote | undefined;
+      if (userId) {
+        userVote = await this.getUserVote(userId, prediction.id);
+      }
       const totalVotes = prediction.yesVotes + prediction.noVotes;
       const yesPercentage = totalVotes > 0 ? Math.round((prediction.yesVotes / totalVotes) * 100) : 0;
       const noPercentage = 100 - yesPercentage;
@@ -135,11 +139,13 @@ export class DatabaseStorage implements IStorage {
         ...prediction,
         user: result.user!,
         category: result.category!,
+        userVote,
         yesPercentage,
         noPercentage,
         timeRemaining,
       } as PredictionWithDetails;
-    });
+    }));
+    return predictionsWithDetails;
   }
 
   async getPrediction(id: string, userId?: string): Promise<PredictionWithDetails | undefined> {

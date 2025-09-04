@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, type QueryFunctionContext } from "@tanstack/react-query";
 import TopNavigation from "@/components/top-navigation";
 import BottomNavigation from "@/components/bottom-navigation";
 import { Button } from "@/components/ui/button";
@@ -18,16 +18,18 @@ export default function Leaderboard() {
     isLoading,
   } = useInfiniteQuery<UserType[]>({
     queryKey: ["/api/leaderboard"],
-    queryFn: ({ pageParam = 0 }: { pageParam: unknown }) => {
-      const numericPageParam = (pageParam as number) || 0;
+    queryFn: ({ pageParam }: QueryFunctionContext) => {
+      const offset = typeof pageParam === "number" ? pageParam : 0;
       const params = new URLSearchParams({
         limit: String(LEADERBOARD_PAGE_SIZE),
-        offset: String(numericPageParam * LEADERBOARD_PAGE_SIZE),
+        offset: String(offset * LEADERBOARD_PAGE_SIZE),
       });
       return fetch(`/api/leaderboard?${params}`).then((res) => res.json());
     },
-    getNextPageParam: (lastPage, allPages) => {
-      return lastPage.length === LEADERBOARD_PAGE_SIZE ? allPages.length : undefined;
+    getNextPageParam: (lastPage: UserType[], allPages: UserType[][]) => {
+      return lastPage.length === LEADERBOARD_PAGE_SIZE
+        ? allPages.length
+        : undefined;
     },
     initialPageParam: 0,
   });

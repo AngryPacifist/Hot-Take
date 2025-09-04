@@ -1,6 +1,7 @@
 import { Bell, Settings, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +11,7 @@ export default function TopNavigation() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
@@ -21,7 +23,7 @@ export default function TopNavigation() {
         description: "You have been logged out successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      window.location.href = "/";
+      setLocation("/");
     },
     onError: (error) => {
       toast({

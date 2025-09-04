@@ -4,10 +4,12 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { isAuthenticated, hashPassword, comparePassword, isBcryptHash, loginUser, logoutUser } from "./auth";
 import { insertPredictionSchema, insertVoteSchema, loginSchema, registerSchema, createPasswordResetRequestSchema, passwordResetSchema, users, votes } from "@shared/schema";
+import * as schema from "@shared/schema";
 import { z } from "zod";
 import crypto from "crypto";
 import { db } from "./db";
 import { eq, sql } from "drizzle-orm";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize default categories
@@ -203,18 +205,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sortBy = req.query.sortBy as "recent" | "trending" | "ending_soon";
       const searchQuery = req.query.searchQuery as string;
 
-      const predictions = await storage.getPredictions(limit, offset, categoryId, sortBy, searchQuery);
-      
-      // If user is authenticated, include their votes
-      if (req.session && (req.session as any).userId) {
-        const userId = (req.session as any).userId;
-        for (const prediction of predictions) {
-          const userVote = await storage.getUserVote(userId, prediction.id);
-          if (userVote) {
-            (prediction as any).userVote = userVote;
-          }
-        }
-      }
+      const userId = (req.session as any).userId;
+      const predictions = await storage.getPredictions(limit, offset, categoryId, sortBy, searchQuery, userId);
       
       res.json(predictions);
     } catch (error) {
@@ -275,8 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.session as any).userId;
       const validatedData = insertVoteSchema.parse(req.body);
 
-      // @ts-ignore
-      const vote = await db.transaction(async (tx) => {
+      const vote = await db.transaction(async (tx: NodePgDatabase<typeof schema>) => {
         // Check if user already voted
         const existingVote = await storage.getUserVote(userId, validatedData.predictionId);
         if (existingVote) {
